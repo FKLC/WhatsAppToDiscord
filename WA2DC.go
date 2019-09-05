@@ -58,16 +58,7 @@ var (
 func main() {
 	err := unmarshal("settings.json", &settings)
 	if _, fileNotExist := err.(*os.PathError); fileNotExist {
-		fmt.Println("It seems like it is your first run.")
-		settings.Token = input("Please enter your bot token: ")
-		settings.GuildID = input("Please enter your guild ID: ")
-		settings.CategoryID = input("Please enter category ID: ")
-		settings.ControlChannelID = input("Please enter control channel ID: ")
-		settings.SessionFilePath = "session.json"
-		settings.ChatsFilePath = "chats.json"
-		settings.SendErrors = false
-		marshal("settings.json", &settings)
-		fmt.Println("Settings saved.")
+		firstRun()
 	} else if err != nil {
 		panic(err)
 	}
@@ -312,4 +303,46 @@ func input(promptText string) string {
 	}
 	userInput = strings.ReplaceAll(userInput, "\n", "")
 	return strings.ReplaceAll(userInput, "\r", "")
+}
+
+func firstRun() {
+	fmt.Println("It seems like it is your first run.")
+	settings.Token = input("Please enter your bot token: ")
+	dcSession, err := dc.New("Bot " + settings.Token)
+	if err != nil {
+		panic(err)
+	}
+	channelsCreated := make(chan bool)
+
+	dcSession.AddHandler(func(_ *dc.Session, guildCreate *dc.GuildCreate) {
+		settings.GuildID = guildCreate.ID
+		categoryChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name: "WhatsApp",
+			Type: dc.ChannelTypeGuildCategory})
+		if err != nil {
+			panic(nil)
+		}
+		settings.CategoryID = categoryChannel.ID
+
+		controlChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name:     "control-room",
+			Type:     dc.ChannelTypeGuildText,
+			ParentID: settings.CategoryID})
+		if err != nil {
+			panic(nil)
+		}
+		settings.ControlChannelID = controlChannel.ID
+		channelsCreated <- true
+	})
+
+	err = dcSession.Open()
+	if err != nil {
+		panic(err)
+	}
+	<-channelsCreated
+	settings.SessionFilePath = "session.json"
+	settings.ChatsFilePath = "chats.json"
+	settings.SendErrors = false
+	marshal("settings.json", &settings)
+	fmt.Println("Settings saved.")
 }
