@@ -13,7 +13,18 @@ But most importantly you can open **Discord overlay** and reply to your messages
 
 ---
 ### Setup
-Please see [Wiki](https://github.com/FKLC/WhatsAppToDiscord/wiki)
+
+1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe)
+1. Go to [Discord applications](https://discordapp.com/developers/applications/)
+1. Click the **blue button** on the right upper corner with the text **"New Application"**
+1. Move to **"Bot"** section
+1. Click the **blue button** on the right with the text **"Add a bot"**
+1. Click the **blue button** on the right of icon of bot with the text **"Copy"**
+1. Then paste into WA2DC and press enter.
+1. Open a new tab and paste this URL but don't navigate to it. `https://discordapp.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8208` 
+1. Move back to **"General Information"** section and copy **"CLIENT ID"**
+1. Paste **"CLIENT ID"** to **INSERT_CLIENT_ID_HERE** in the URL you opened in new tab and navigate to it.
+1. Accept bot to your server (Recommendation: Create new server for privacy)
 
 ---
 ### This library is not something revolutionary
