@@ -28,31 +28,18 @@ type Settings struct {
 	SendErrors       bool
 }
 
-type MessageChannelType int
-
-const (
-	private MessageChannelType = iota
-	group
-	broadcast
-)
-
-type Message struct {
-	channelID string
-	content   string
-}
-
 var (
-	startTime = time.Now()
-	settings  Settings
+	startTime    = time.Now()
+	settings     Settings
+	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats"
 )
 
 var (
-	dcSession        *dc.Session
-	guild            *dc.Guild
-	waConnection     *wa.Conn
-	receivingChannel = make(chan *Message)
-	chats            = make(map[string]string)
-	groupNames       = make(map[string]string)
+	dcSession    *dc.Session
+	guild        *dc.Guild
+	waConnection *wa.Conn
+	chats        = make(map[string]string)
+	groupNames   = make(map[string]string)
 )
 
 func main() {
@@ -68,11 +55,8 @@ func main() {
 		panic(err)
 	}
 
-	dcSession = connectToDiscord(settings.Token)
-	guild, err = dcSession.Guild(settings.GuildID)
-	if err != nil {
-		panic(err)
-	}
+	initializeDiscord()
+	initializeWhatsApp()
 
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -84,13 +68,13 @@ func main() {
 }
 
 // Discord
-func connectToDiscord(token string) *dc.Session {
-	dcSession, err := dc.New("Bot " + token)
+func initializeDiscord() {
+	var err error
+	dcSession, err = dc.New("Bot " + settings.Token)
 	if err != nil {
 		panic(err)
 	}
 
-	dcSession.AddHandler(dcOnReady)
 	dcSession.AddHandler(dcOnMessageCreate)
 	dcSession.AddHandler(dcOnChannelDelete)
 
@@ -98,52 +82,60 @@ func connectToDiscord(token string) *dc.Session {
 	if err != nil {
 		panic(err)
 	}
-	return dcSession
-}
 
-func dcOnReady(_ *dc.Session, _ *dc.Ready) {
-	go initializeWhatsApp()
-	for {
-		message := <-receivingChannel
-		_, err := dcSession.ChannelMessageSend(message.channelID, message.content)
-		if err != nil {
-			panic(nil)
-		}
+	guild, err = dcSession.Guild(settings.GuildID)
+	if err != nil {
+		panic(err)
 	}
 }
 
 func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
+	// Skip if bot itself messaged
 	if message.Author.ID == dcSession.State.User.ID {
 		return
 	}
 
+	// If it is supposed to be a command
 	if message.ChannelID == settings.ControlChannelID {
-		parts := strings.Split(message.Content, " ")
-		if parts[0] == "start" {
-			if isInt(parts[1]) {
-				getOrCreateChannel(parts[1] + "@s.whatsapp.net")
-			} else {
-				name := strings.Join(parts[1:], " ")
-				for jid, chat := range waConnection.Store.Chats {
-					if chat.Name == name {
-						getOrCreateChannel(jid)
-					}
-				}
-			}
+		switch parts := strings.Split(message.Content, " "); strings.ToLower(parts[0]) {
+		case "start":
+			dcCommandStart(parts)
+		case "list":
+			dcCommandList()
+		default:
+			dcSession.ChannelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
 		}
+		return
 	}
 
+	// If not a command try to send WhatsApp message
 	for key, channelID := range chats {
 		if channelID == message.ChannelID {
-			waConnection.Send(wa.TextMessage{
-				Info: wa.MessageInfo{
-					RemoteJid: key,
-				},
-				Text: message.Content,
-			})
+			waSendMessage(key, message.Content, message.Attachments)
 			break
 		}
 	}
+}
+
+func dcCommandStart(parts []string) {
+	if isInt(parts[1]) {
+		getOrCreateChannel(parts[1] + "@s.whatsapp.net")
+	} else {
+		name := strings.Join(parts[1:], " ")
+		for jid, chat := range waConnection.Store.Chats {
+			if chat.Name == name {
+				getOrCreateChannel(jid)
+			}
+		}
+	}
+}
+
+func dcCommandList() {
+	list := ""
+	for _, chat := range waConnection.Store.Chats {
+		list += chat.Name + "\n"
+	}
+	dcSession.ChannelMessageSend(settings.ControlChannelID, list)
 }
 
 func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
@@ -186,16 +178,14 @@ func connectToWhatsApp() {
 			png, _ = qrcode.Encode(<-qrChan, qrcode.Medium, 256)
 			f := bytes.NewReader(png)
 
-			ms := &dc.MessageSend{
+			dcSession.ChannelMessageSendComplex(settings.ControlChannelID, &dc.MessageSend{
 				Files: []*dc.File{
 					&dc.File{
 						Name:   "qrcode.png",
 						Reader: f,
 					},
 				},
-			}
-
-			dcSession.ChannelMessageSendComplex(settings.ControlChannelID, ms)
+			})
 		}()
 		session, err := waConnection.Login(qrChan)
 		if err != nil {
@@ -210,6 +200,18 @@ func connectToWhatsApp() {
 	}
 }
 
+func waSendMessage(jid string, content string, attachments []*dc.MessageAttachment) {
+	for _, attachment := range attachments {
+		content += "\n" + attachment.URL
+	}
+	waConnection.Send(wa.TextMessage{
+		Info: wa.MessageInfo{
+			RemoteJid: jid,
+		},
+		Text: content,
+	})
+}
+
 type waHandler struct{}
 
 func (waHandler) HandleError(err error) {
@@ -221,28 +223,74 @@ func (waHandler) HandleError(err error) {
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
 	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) {
-		chat, messageChannelType, parts := getOrCreateChannel(message.Info.RemoteJid)
+		chat := getOrCreateChannel(message.Info.RemoteJid)
 
 		content := message.Text
-		if messageChannelType != private {
-			name := waConnection.Store.Chats[*message.Info.Source.Participant].Name
-			if name == "" {
-				name = strings.Split(parts[0], "-")[0]
-			}
-			content = "**" + name + ":** " + content
+		if strings.HasSuffix(message.Info.RemoteJid, "@g.us") {
+			content = "**" + jidToName(*message.Info.Source.Participant) + ":** " + content
 		}
-		receivingChannel <- &Message{chat, content}
+		dcSession.ChannelMessageSend(chat, content)
 	}
 }
 
-func getOrCreateChannel(jid string) (string, MessageChannelType, []string) {
-	messageChannelType, parts := parseJid(jid)
-	name := waConnection.Store.Chats[jid].Name
-	if name == "" {
-		name = parts[0]
+func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
+	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) {
+		chat := getOrCreateChannel(info.RemoteJid)
+
+		if strings.HasSuffix(info.RemoteJid, "@g.us") {
+			content = "**" + jidToName(*info.Source.Participant) + ":** " + content
+		}
+
+		f := bytes.NewReader(data)
+
+		dcSession.ChannelMessageSendComplex(chat, &dc.MessageSend{
+			Content: content,
+			Files: []*dc.File{
+				&dc.File{
+					Name:   fileName,
+					Reader: f,
+				},
+			},
+		})
 	}
+}
+
+func (waHandler) HandleImageMessage(message wa.ImageMessage) {
+	data, err := message.Download()
+	if err != nil {
+		return
+	}
+	handleMediaMessage(message.Info, message.Caption, data, "image."+strings.Split(message.Type, "/")[1])
+}
+
+func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
+	data, err := message.Download()
+	if err != nil {
+		return
+	}
+	handleMediaMessage(message.Info, message.Caption, data, "video."+strings.Split(message.Type, "/")[1])
+}
+
+func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
+	data, err := message.Download()
+	if err != nil {
+		return
+	}
+	handleMediaMessage(message.Info, "", data, "audio."+strings.Split(strings.Split(message.Type, "/")[1], ";")[0])
+}
+
+func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
+	data, err := message.Download()
+	if err != nil {
+		return
+	}
+	handleMediaMessage(message.Info, "", data, message.FileName)
+}
+
+func getOrCreateChannel(jid string) string {
 	chat, ok := chats[jid]
 	if !ok {
+		name := jidToName(jid)
 		channel, err := dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
 			Name:     name,
 			Type:     dc.ChannelTypeGuildText,
@@ -253,7 +301,7 @@ func getOrCreateChannel(jid string) (string, MessageChannelType, []string) {
 		chats[jid] = channel.ID
 		chat = chats[jid]
 	}
-	return chat, messageChannelType, parts
+	return chat
 }
 
 // Other stuff
@@ -282,16 +330,12 @@ func isInt(s string) bool {
 	return true
 }
 
-func parseJid(Jid string) (MessageChannelType, []string) {
-	parts := strings.Split(Jid, "@")
-	if parts[1] == "s.whatsapp.net" {
-		return private, parts
-	} else if parts[1] == "g.us" {
-		return group, parts
-	} else if parts[1] == "broadcast" {
-		return broadcast, parts
+func jidToName(jid string) string {
+	name := waConnection.Store.Chats[jid].Name
+	if name == "" {
+		name = strings.Split(strings.Split(jid, "@")[0], "-")[0]
 	}
-	panic("Invalid Jid")
+	return name
 }
 
 func input(promptText string) string {

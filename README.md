@@ -6,10 +6,16 @@ WhatsAppToDiscord is a Discord bot uses WhatsApp Web for messaging in Discord bu
 ### Features
 
 - Way too low memory usage than a web browser.
+- Supports media (Image, Video, Audio, Document) NEW!
 - Open Source (You can always compile your own)
 - Self Hosted (So your data keeps on you)
 
 But most importantly you can open **Discord overlay** and reply to your messages **without a break.**
+
+---
+### Commands
+- `start <number with country code or name>`: Starts a new conversation
+- `list`: Lists existing chats
 
 ---
 ### Setup
