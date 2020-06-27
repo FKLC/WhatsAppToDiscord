@@ -27,7 +27,7 @@ But most importantly you can open **Discord overlay** and reply to your messages
 1. Click the **blue button** on the right with the text **"Add a bot"**
 1. Click the **blue button** on the right of icon of bot with the text **"Copy"**
 1. Then paste into WA2DC and press enter.
-1. Open a new tab and paste this URL but don't navigate to it. `https://discordapp.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=8208` 
+1. Open a new tab and paste this URL but don't navigate to it. `https://discordapp.com/oauth2/authorize?client_id=INSERT_CLIENT_ID_HERE&scope=bot&permissions=536879120` 
 1. Move back to **"General Information"** section and copy **"CLIENT ID"**
 1. Paste **"CLIENT ID"** to **INSERT_CLIENT_ID_HERE** in the URL you opened in new tab and navigate to it.
 1. Accept bot to your server (Recommendation: Create new server for privacy)

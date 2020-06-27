@@ -25,6 +25,7 @@ type Settings struct {
 	ControlChannelID string
 	SessionFilePath  string
 	ChatsFilePath    string
+	WebhooksFilePath string
 	SendErrors       bool
 }
 
@@ -39,7 +40,7 @@ var (
 	guild        *dc.Guild
 	waConnection *wa.Conn
 	chats        = make(map[string]string)
-	groupNames   = make(map[string]string)
+	webhooks     = make(map[string]*dc.Webhook)
 )
 
 func main() {
@@ -50,7 +51,18 @@ func main() {
 		panic(err)
 	}
 
+	// Adds backward compability
+	if settings.WebhooksFilePath == "" {
+		settings.WebhooksFilePath = "webhooks.json"
+		marshal("settings.json", &settings)
+	}
+
 	err = unmarshal(settings.ChatsFilePath, &chats)
+	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
+		panic(err)
+	}
+
+	err = unmarshal(settings.WebhooksFilePath, &webhooks)
 	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
 		panic(err)
 	}
@@ -64,6 +76,7 @@ func main() {
 	<-sc
 
 	marshal(settings.ChatsFilePath, chats)
+	marshal(settings.WebhooksFilePath, webhooks)
 	dcSession.Close()
 }
 
@@ -151,6 +164,7 @@ func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
 func initializeWhatsApp() {
 	var err error
 	waConnection, err = wa.NewConn(20 * time.Second)
+	waConnection.SetClientVersion(0, 4, 1307) // https://github.com/Rhymen/go-whatsapp/issues/304#issuecomment-604580880
 	if err != nil {
 		panic(err)
 	}
@@ -180,7 +194,7 @@ func connectToWhatsApp() {
 
 			dcSession.ChannelMessageSendComplex(settings.ControlChannelID, &dc.MessageSend{
 				Files: []*dc.File{
-					&dc.File{
+					{
 						Name:   "qrcode.png",
 						Reader: f,
 					},
@@ -202,7 +216,7 @@ func connectToWhatsApp() {
 
 func waSendMessage(jid string, content string, attachments []*dc.MessageAttachment) {
 	for _, attachment := range attachments {
-		content += "\n" + attachment.URL
+		content += attachment.URL + "\n"
 	}
 	waConnection.Send(wa.TextMessage{
 		Info: wa.MessageInfo{
@@ -223,35 +237,48 @@ func (waHandler) HandleError(err error) {
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
 	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) {
-		chat := getOrCreateChannel(message.Info.RemoteJid)
-
-		content := message.Text
+		channelID := getOrCreateChannel(message.Info.RemoteJid)
 		if strings.HasSuffix(message.Info.RemoteJid, "@g.us") {
-			content = "**" + jidToName(*message.Info.Source.Participant) + ":** " + content
+			webhook := getOrCreateWebhook(channelID)
+			_, err := dcSession.WebhookExecute(webhook.ID, webhook.Token, true, &dc.WebhookParams{
+				Content:  message.Text,
+				Username: jidToName(*message.Info.Source.Participant),
+			})
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			dcSession.ChannelMessageSend(channelID, message.Text)
 		}
-		dcSession.ChannelMessageSend(chat, content)
 	}
 }
 
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
 	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) {
-		chat := getOrCreateChannel(info.RemoteJid)
+		channelID := getOrCreateChannel(info.RemoteJid)
+		if strings.HasSuffix(*info.Source.Participant, "@g.us") {
+			webhook := getOrCreateWebhook(channelID)
+			_, err := dcSession.WebhookExecute(webhook.ID, webhook.Token, true, &dc.WebhookParams{
+				Content:  content,
+				Username: jidToName(*info.Source.Participant),
+				File:     string(data),
+			})
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			f := bytes.NewReader(data)
 
-		if strings.HasSuffix(info.RemoteJid, "@g.us") {
-			content = "**" + jidToName(*info.Source.Participant) + ":** " + content
-		}
-
-		f := bytes.NewReader(data)
-
-		dcSession.ChannelMessageSendComplex(chat, &dc.MessageSend{
-			Content: content,
-			Files: []*dc.File{
-				&dc.File{
-					Name:   fileName,
-					Reader: f,
+			dcSession.ChannelMessageSendComplex(channelID, &dc.MessageSend{
+				Content: content,
+				Files: []*dc.File{
+					{
+						Name:   fileName,
+						Reader: f,
+					},
 				},
-			},
-		})
+			})
+		}
 	}
 }
 
@@ -288,7 +315,7 @@ func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
 }
 
 func getOrCreateChannel(jid string) string {
-	chat, ok := chats[jid]
+	channelID, ok := chats[jid]
 	if !ok {
 		name := jidToName(jid)
 		channel, err := dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
@@ -296,12 +323,25 @@ func getOrCreateChannel(jid string) string {
 			Type:     dc.ChannelTypeGuildText,
 			ParentID: settings.CategoryID})
 		if err != nil {
-			panic(nil)
+			panic(err)
 		}
 		chats[jid] = channel.ID
-		chat = chats[jid]
+		channelID = chats[jid]
 	}
-	return chat
+	return channelID
+}
+
+func getOrCreateWebhook(channelID string) *dc.Webhook {
+	webhook, ok := webhooks[channelID]
+	if !ok {
+		webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
+		if err != nil {
+			panic(err)
+		}
+		webhooks[channelID] = webhook
+		return webhook
+	}
+	return webhook
 }
 
 // Other stuff
@@ -364,7 +404,7 @@ func firstRun() {
 			Name: "WhatsApp",
 			Type: dc.ChannelTypeGuildCategory})
 		if err != nil {
-			panic(nil)
+			panic(err)
 		}
 		settings.CategoryID = categoryChannel.ID
 
@@ -373,7 +413,7 @@ func firstRun() {
 			Type:     dc.ChannelTypeGuildText,
 			ParentID: settings.CategoryID})
 		if err != nil {
-			panic(nil)
+			panic(err)
 		}
 		settings.ControlChannelID = controlChannel.ID
 		channelsCreated <- true
@@ -386,6 +426,7 @@ func firstRun() {
 	<-channelsCreated
 	settings.SessionFilePath = "session.json"
 	settings.ChatsFilePath = "chats.json"
+	settings.WebhooksFilePath = "webhooks.json"
 	settings.SendErrors = false
 	marshal("settings.json", &settings)
 	fmt.Println("Settings saved.")
