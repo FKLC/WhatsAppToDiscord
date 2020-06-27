@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -27,6 +28,11 @@ type Settings struct {
 	ChatsFilePath    string
 	WebhooksFilePath string
 	SendErrors       bool
+}
+
+type githubReleaseResp struct {
+	TagName string `json:"tag_name"`
+	Body    string `json:"body"`
 }
 
 var (
@@ -69,6 +75,9 @@ func main() {
 
 	initializeDiscord()
 	initializeWhatsApp()
+	if err = checkVersion(); err != nil {
+		dcSession.ChannelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
+	}
 
 	fmt.Println("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -104,7 +113,7 @@ func initializeDiscord() {
 
 func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	// Skip if bot itself messaged
-	if message.Author.ID == dcSession.State.User.ID {
+	if message.Author.ID == dcSession.State.User.ID || message.WebhookID != "" {
 		return
 	}
 
@@ -345,6 +354,30 @@ func getOrCreateWebhook(channelID string) *dc.Webhook {
 }
 
 // Other stuff
+func checkVersion() error {
+	cl := http.Client{
+		Timeout: time.Second * 2,
+	}
+
+	r, err := cl.Get("https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest")
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	var versionInfo githubReleaseResp
+	err = json.NewDecoder(r.Body).Decode(&versionInfo)
+	if err != nil {
+		return err
+	}
+
+	if versionInfo.TagName != "v0.2.2-alpha" {
+		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
+	}
+
+	return nil
+}
+
 func unmarshal(filename string, object interface{}) error {
 	JSONRaw, err := ioutil.ReadFile(filename)
 	if err != nil {
