@@ -26,7 +26,6 @@ type Settings struct {
 	ControlChannelID string
 	SessionFilePath  string
 	ChatsFilePath    string
-	WebhooksFilePath string
 	SendErrors       bool
 }
 
@@ -45,8 +44,7 @@ var (
 	dcSession    *dc.Session
 	guild        *dc.Guild
 	waConnection *wa.Conn
-	chats        = make(map[string]string)
-	webhooks     = make(map[string]*dc.Webhook)
+	chats        = make(map[string]*dc.Webhook)
 )
 
 func main() {
@@ -54,26 +52,37 @@ func main() {
 	if _, fileNotExist := err.(*os.PathError); fileNotExist {
 		firstRun()
 	} else if err != nil {
-		panic(err)
-	}
-
-	// Adds backward compability
-	if settings.WebhooksFilePath == "" {
-		settings.WebhooksFilePath = "webhooks.json"
-		marshal("settings.json", &settings)
-	}
-
-	err = unmarshal(settings.ChatsFilePath, &chats)
-	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
-		panic(err)
-	}
-
-	err = unmarshal(settings.WebhooksFilePath, &webhooks)
-	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
-		panic(err)
+		if _, isJSONCorrupted := err.(*json.SyntaxError); isJSONCorrupted {
+			anwser := input("settings.json file seems to be corrupted. You can fix it manually or you will have to run setup again. Would you like to run setup? (Y/N)")
+			if strings.ToLower(anwser) == "y" {
+				firstRun()
+			} else {
+				os.Exit(1)
+			}
+		} else {
+			panic(err)
+		}
 	}
 
 	initializeDiscord()
+
+	err = unmarshal(settings.ChatsFilePath, &chats)
+	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
+		if _, isJSONCorrupted := err.(*json.SyntaxError); isJSONCorrupted {
+			anwser := input("chats.json file seems to be corrupted. You can fix it manually or the bot won't send messages to old channels and start to create new ones. Would you like to reset? (Y/N)")
+			if strings.ToLower(anwser) == "y" {
+				marshal(settings.ChatsFilePath, chats)
+			} else {
+				os.Exit(1)
+			}
+		} else if _, isOldVer := err.(*json.UnmarshalTypeError); isOldVer {
+			createOrMergeWebhooks()
+		} else {
+			panic(err)
+		}
+	}
+
+	repairChannels()
 	initializeWhatsApp()
 	if err = checkVersion(); err != nil {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
@@ -85,7 +94,6 @@ func main() {
 	<-sc
 
 	marshal(settings.ChatsFilePath, chats)
-	marshal(settings.WebhooksFilePath, webhooks)
 	dcSession.Close()
 }
 
@@ -111,6 +119,43 @@ func initializeDiscord() {
 	}
 }
 
+func repairChannels() {
+	channels, err := dcSession.GuildChannels(settings.GuildID)
+	if err != nil {
+		panic(err)
+	}
+
+	var matchedChats []string
+	for _, channel := range channels {
+		if channel.ParentID == settings.CategoryID && channel.ID != settings.ControlChannelID {
+			exist := false
+			for jid, chat := range chats {
+				if chat.ChannelID == channel.ID {
+					matchedChats = append(matchedChats, jid)
+					exist = true
+					break
+				}
+			}
+			if !exist {
+				dcSession.ChannelDelete(channel.ID)
+			}
+		}
+	}
+
+	for jid := range chats {
+		exist := false
+		for _, mJid := range matchedChats {
+			if mJid == jid {
+				exist = true
+				break
+			}
+		}
+		if !exist {
+			delete(chats, jid)
+		}
+	}
+}
+
 func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	// Skip if bot itself messaged
 	if message.Author.ID == dcSession.State.User.ID || message.WebhookID != "" {
@@ -131,8 +176,8 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	}
 
 	// If not a command try to send WhatsApp message
-	for key, channelID := range chats {
-		if channelID == message.ChannelID {
+	for key, chat := range chats {
+		if chat.ChannelID == message.ChannelID {
 			waSendMessage(key, message.Content, message.Attachments)
 			break
 		}
@@ -161,8 +206,8 @@ func dcCommandList() {
 }
 
 func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
-	for key, channelID := range chats {
-		if channelID == deletedChannel.ID {
+	for key, chat := range chats {
+		if chat.ChannelID == deletedChannel.ID {
 			delete(chats, key)
 			break
 		}
@@ -246,47 +291,41 @@ func (waHandler) HandleError(err error) {
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
 	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) {
-		channelID := getOrCreateChannel(message.Info.RemoteJid)
-		if strings.HasSuffix(message.Info.RemoteJid, "@g.us") {
-			webhook := getOrCreateWebhook(channelID)
-			_, err := dcSession.WebhookExecute(webhook.ID, webhook.Token, true, &dc.WebhookParams{
-				Content:  message.Text,
-				Username: jidToName(*message.Info.Source.Participant),
-			})
-			if err != nil {
-				panic(err)
-			}
+		var username string
+		if message.Info.Source.Participant == nil {
+			username = jidToName(message.Info.RemoteJid)
 		} else {
-			dcSession.ChannelMessageSend(channelID, message.Text)
+			username = jidToName(*message.Info.Source.Participant)
+		}
+
+		chat := getOrCreateChannel(message.Info.RemoteJid)
+		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+			Content:  message.Text,
+			Username: username,
+		})
+		if err != nil {
+			panic(err)
 		}
 	}
 }
 
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
 	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) {
-		channelID := getOrCreateChannel(info.RemoteJid)
-		if strings.HasSuffix(*info.Source.Participant, "@g.us") {
-			webhook := getOrCreateWebhook(channelID)
-			_, err := dcSession.WebhookExecute(webhook.ID, webhook.Token, true, &dc.WebhookParams{
-				Content:  content,
-				Username: jidToName(*info.Source.Participant),
-				File:     string(data),
-			})
-			if err != nil {
-				panic(err)
-			}
+		var username string
+		if info.Source.Participant == nil {
+			username = jidToName(info.RemoteJid)
 		} else {
-			f := bytes.NewReader(data)
+			username = jidToName(*info.Source.Participant)
+		}
 
-			dcSession.ChannelMessageSendComplex(channelID, &dc.MessageSend{
-				Content: content,
-				Files: []*dc.File{
-					{
-						Name:   fileName,
-						Reader: f,
-					},
-				},
-			})
+		chat := getOrCreateChannel(info.RemoteJid)
+		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+			Content:  content,
+			Username: username,
+			File:     string(data),
+		})
+		if err != nil {
+			panic(err)
 		}
 	}
 }
@@ -323,8 +362,8 @@ func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
 	handleMediaMessage(message.Info, "", data, message.FileName)
 }
 
-func getOrCreateChannel(jid string) string {
-	channelID, ok := chats[jid]
+func getOrCreateChannel(jid string) dc.Webhook {
+	chat, ok := chats[jid]
 	if !ok {
 		name := jidToName(jid)
 		channel, err := dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
@@ -334,26 +373,44 @@ func getOrCreateChannel(jid string) string {
 		if err != nil {
 			panic(err)
 		}
-		chats[jid] = channel.ID
-		channelID = chats[jid]
-	}
-	return channelID
-}
-
-func getOrCreateWebhook(channelID string) *dc.Webhook {
-	webhook, ok := webhooks[channelID]
-	if !ok {
-		webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
+		webhook, err := dcSession.WebhookCreate(channel.ID, "WA2DC", "")
 		if err != nil {
 			panic(err)
 		}
-		webhooks[channelID] = webhook
-		return webhook
+		chats[jid] = webhook
+		chat = chats[jid]
 	}
-	return webhook
+	return *chat
 }
 
 // Other stuff
+func createOrMergeWebhooks() {
+	webhooks := make(map[string]*dc.Webhook)
+	err := unmarshal("webhooks.json", &webhooks)
+	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
+		panic(err)
+	} else if isFileNotExistError {
+		oldVerChats := make(map[string]string)
+		unmarshal("chats.json", &oldVerChats)
+
+		for jid, channelID := range oldVerChats {
+			webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
+			if err != nil {
+				panic(err)
+			}
+			chats[jid] = webhook
+		}
+	} else {
+		oldVerChats := make(map[string]string)
+		unmarshal("chats.json", &oldVerChats)
+
+		for jid, channelID := range oldVerChats {
+			chats[jid] = webhooks[channelID]
+		}
+	}
+	marshal(settings.ChatsFilePath, &chats)
+}
+
 func checkVersion() error {
 	cl := http.Client{
 		Timeout: time.Second * 2,
@@ -371,7 +428,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.2-alpha" {
+	if versionInfo.TagName != "v0.2.3-alpha" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
@@ -459,7 +516,6 @@ func firstRun() {
 	<-channelsCreated
 	settings.SessionFilePath = "session.json"
 	settings.ChatsFilePath = "chats.json"
-	settings.WebhooksFilePath = "webhooks.json"
 	settings.SendErrors = false
 	marshal("settings.json", &settings)
 	fmt.Println("Settings saved.")
