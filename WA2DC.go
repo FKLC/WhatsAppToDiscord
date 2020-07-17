@@ -166,9 +166,13 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	if message.ChannelID == settings.ControlChannelID {
 		switch parts := strings.Split(message.Content, " "); strings.ToLower(parts[0]) {
 		case "start":
+			if len(parts) == 1 {
+				dcSession.ChannelMessageSend(settings.ControlChannelID, "Please enter a phone number or name. Usage: `start <number with country code or name>`")
+				return
+			}
 			dcCommandStart(parts)
 		case "list":
-			dcCommandList()
+			dcCommandList(parts)
 		default:
 			dcSession.ChannelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
 		}
@@ -197,10 +201,16 @@ func dcCommandStart(parts []string) {
 	}
 }
 
-func dcCommandList() {
+func dcCommandList(parts []string) {
+	searchPrefix := ""
+	if len(parts) > 1 {
+		searchPrefix = strings.ToLower(strings.Join(parts[1:], " "))
+	}
 	list := ""
 	for _, chat := range waConnection.Store.Chats {
-		list += chat.Name + "\n"
+		if strings.HasPrefix(strings.ToLower(chat.Name), searchPrefix) {
+			list += chat.Name + "\n"
+		}
 	}
 	dcSession.ChannelMessageSend(settings.ControlChannelID, list)
 }
@@ -428,7 +438,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.3-alpha" {
+	if versionInfo.TagName != "v0.2.5" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
@@ -513,6 +523,7 @@ func firstRun() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("You can invite bot from: https://discordapp.com/oauth2/authorize?client_id=" + dcSession.State.User.ID + "&scope=bot&permissions=536879120")
 	<-channelsCreated
 	settings.SessionFilePath = "session.json"
 	settings.ChatsFilePath = "chats.json"
