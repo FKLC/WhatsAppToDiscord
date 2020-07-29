@@ -329,11 +329,19 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 		}
 
 		chat := getOrCreateChannel(info.RemoteJid)
-		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  content,
-			Username: username,
-			File:     string(data),
-		})
+		if content != "" {
+			_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+				Content:  content,
+				Username: username,
+				File:     string(data),
+			})
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
+		_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+fileName+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
 		if err != nil {
 			panic(err)
 		}
@@ -438,7 +446,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.5" {
+	if versionInfo.TagName != "v0.2.6" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
