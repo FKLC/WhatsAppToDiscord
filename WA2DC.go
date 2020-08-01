@@ -296,7 +296,10 @@ func (waHandler) HandleError(err error) {
 	if settings.SendErrors {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, err.Error())
 	}
-	fmt.Fprintf(os.Stderr, "%v", err)
+	if _, ok := err.(*wa.ErrConnectionClosed); ok {
+		initializeWhatsApp()
+	}
+	fmt.Fprintf(os.Stderr, "%v\n", err)
 }
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
@@ -446,7 +449,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.6" {
+	if versionInfo.TagName != "v0.2.7" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
