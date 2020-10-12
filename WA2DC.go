@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +25,7 @@ type Settings struct {
 	GuildID          string
 	CategoryID       string
 	ControlChannelID string
+	Whitelist        []string
 	SessionFilePath  string
 	ChatsFilePath    string
 	SendErrors       bool
@@ -63,6 +65,7 @@ func main() {
 			panic(err)
 		}
 	}
+	whitelistLength = len(settings.Whitelist)
 
 	initializeDiscord()
 
@@ -81,7 +84,6 @@ func main() {
 			panic(err)
 		}
 	}
-
 	repairChannels()
 	initializeWhatsApp()
 	if err = checkVersion(); err != nil {
@@ -93,6 +95,7 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
+	marshal("settings.json", &settings)
 	marshal(settings.ChatsFilePath, chats)
 	dcSession.Close()
 }
@@ -156,6 +159,8 @@ func repairChannels() {
 	}
 }
 
+var jidCommandRegex, _ = regexp.Compile(`<#(\d*)>`)
+
 func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	// Skip if bot itself messaged
 	if message.Author.ID == dcSession.State.User.ID || message.WebhookID != "" {
@@ -173,6 +178,8 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 			dcCommandStart(parts)
 		case "list":
 			dcCommandList(parts)
+		case "addtowhitelist":
+			dcCommandAddToWhitelist(message.Content)
 		default:
 			dcSession.ChannelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
 		}
@@ -191,14 +198,23 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 func dcCommandStart(parts []string) {
 	if isInt(parts[1]) {
 		getOrCreateChannel(parts[1] + "@s.whatsapp.net")
+		if whitelistLength != 0 {
+			settings.Whitelist = append(settings.Whitelist, parts[1]+"@s.whatsapp.net")
+			whitelistLength++
+		}
 	} else {
 		name := strings.Join(parts[1:], " ")
 		for jid, chat := range waConnection.Store.Chats {
 			if chat.Name == name {
 				getOrCreateChannel(jid)
+				if whitelistLength != 0 {
+					settings.Whitelist = append(settings.Whitelist, jid)
+					whitelistLength++
+				}
 			}
 		}
 	}
+
 }
 
 func dcCommandList(parts []string) {
@@ -213,6 +229,23 @@ func dcCommandList(parts []string) {
 		}
 	}
 	dcSession.ChannelMessageSend(settings.ControlChannelID, list)
+}
+
+func dcCommandAddToWhitelist(messagecontent string) {
+	match := jidCommandRegex.FindStringSubmatch(messagecontent)
+	if len(match) != 2 {
+		dcSession.ChannelMessageSend(settings.ControlChannelID, "Please enter a valid channel name. Usage: `addToWhitelist #<target channel>`")
+		return
+	}
+	for key, chat := range chats {
+		if chat.ChannelID == match[1] {
+			settings.Whitelist = append(settings.Whitelist, key)
+			whitelistLength++
+			dcSession.ChannelMessageSend(settings.ControlChannelID, "Added to whitelist!")
+			return
+		}
+	}
+	dcSession.ChannelMessageSend(settings.ControlChannelID, "Couldn't find any corresponding chat.")
 }
 
 func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
@@ -244,7 +277,7 @@ func connectToWhatsApp() {
 	if err == nil {
 		_, err := waConnection.RestoreWithSession(waSession)
 		if err != nil {
-			dcSession.ChannelMessageSend(settings.ControlChannelID, "Session couldn't restored. "+err.Error()+". Going to create new session!")
+			dcSession.ChannelMessageSend(settings.ControlChannelID, "Session couldn't restored. "+err.Error()+". Going to create a new session!")
 			os.Remove(settings.SessionFilePath)
 			connectToWhatsApp()
 			return
@@ -305,8 +338,22 @@ func (waHandler) HandleError(err error) {
 	fmt.Fprintf(os.Stderr, "%v\n", err)
 }
 
+var whitelistLength = 0
+
+func checkWhitelist(jid string) bool {
+	if whitelistLength == 0 {
+		return true
+	}
+	for _, allowedJid := range settings.Whitelist {
+		if jid == allowedJid {
+			return true
+		}
+	}
+	return false
+}
+
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
-	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) {
+	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) && checkWhitelist(message.Info.RemoteJid) {
 		var username string
 		if message.Info.Source.Participant == nil {
 			username = jidToName(message.Info.RemoteJid)
@@ -326,7 +373,7 @@ func (waHandler) HandleTextMessage(message wa.TextMessage) {
 }
 
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
-	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) {
+	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid) {
 		var username string
 		if info.Source.Participant == nil {
 			username = jidToName(info.RemoteJid)
@@ -452,7 +499,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.8" {
+	if versionInfo.TagName != "v0.2.9" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
