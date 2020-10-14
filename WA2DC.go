@@ -26,6 +26,7 @@ type Settings struct {
 	CategoryID       string
 	ControlChannelID string
 	Whitelist        []string
+	DiscordPrefix    bool
 	SessionFilePath  string
 	ChatsFilePath    string
 	SendErrors       bool
@@ -154,12 +155,18 @@ func repairChannels() {
 			}
 		}
 		if !exist {
+			/* for i, channel := range settings.Whitelist {
+				if channel == match[1] {
+					settings.Whitelist = remove(settings.Whitelist, i)
+					whitelistLength--
+					dcSession.ChannelMessageSend(settings.ControlChannelID, "Removed from whitelist!")
+					return
+				}
+			} */
 			delete(chats, jid)
 		}
 	}
 }
-
-var jidCommandRegex, _ = regexp.Compile(`<#(\d*)>`)
 
 func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	// Skip if bot itself messaged
@@ -180,6 +187,10 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 			dcCommandList(parts)
 		case "addtowhitelist":
 			dcCommandAddToWhitelist(message.Content)
+		case "removefromwhitelist":
+			dcCommandRemoveFromWhitelist(message.Content)
+		case "listwhitelist":
+			dcCommandListWhitelist()
 		default:
 			dcSession.ChannelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
 		}
@@ -189,7 +200,7 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 	// If not a command try to send WhatsApp message
 	for key, chat := range chats {
 		if chat.ChannelID == message.ChannelID {
-			waSendMessage(key, message.Content, message.Attachments)
+			waSendMessage(key, message)
 			break
 		}
 	}
@@ -222,17 +233,19 @@ func dcCommandList(parts []string) {
 	if len(parts) > 1 {
 		searchPrefix = strings.ToLower(strings.Join(parts[1:], " "))
 	}
-	list := ""
+	list := "```"
 	for _, chat := range waConnection.Store.Chats {
 		if strings.HasPrefix(strings.ToLower(chat.Name), searchPrefix) {
 			list += chat.Name + "\n"
 		}
 	}
-	dcSession.ChannelMessageSend(settings.ControlChannelID, list)
+	dcSession.ChannelMessageSend(settings.ControlChannelID, list+"```")
 }
 
+var channelMentionRegex, _ = regexp.Compile(`<#(\d*)>`)
+
 func dcCommandAddToWhitelist(messagecontent string) {
-	match := jidCommandRegex.FindStringSubmatch(messagecontent)
+	match := channelMentionRegex.FindStringSubmatch(messagecontent)
 	if len(match) != 2 {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "Please enter a valid channel name. Usage: `addToWhitelist #<target channel>`")
 		return
@@ -246,6 +259,36 @@ func dcCommandAddToWhitelist(messagecontent string) {
 		}
 	}
 	dcSession.ChannelMessageSend(settings.ControlChannelID, "Couldn't find any corresponding chat.")
+}
+
+func dcCommandRemoveFromWhitelist(messagecontent string) {
+	match := channelMentionRegex.FindStringSubmatch(messagecontent)
+	if len(match) != 2 {
+		dcSession.ChannelMessageSend(settings.ControlChannelID, "Please enter a valid channel name. Usage: `removeFromWhitelist #<target channel>`")
+		return
+	}
+	for jid, chatInfo := range chats {
+		if chatInfo.ChannelID == match[1] {
+			for i, whitelistedJid := range settings.Whitelist {
+				if jid == whitelistedJid {
+					settings.Whitelist = remove(settings.Whitelist, i)
+					whitelistLength--
+					dcSession.ChannelMessageSend(settings.ControlChannelID, "Removed from whitelist!")
+					return
+				}
+			}
+			dcSession.ChannelMessageSend(settings.ControlChannelID, "This conversation is not whitelisted!")
+		}
+	}
+	dcSession.ChannelMessageSend(settings.ControlChannelID, "Couldn't find any corresponding chat.")
+}
+
+func dcCommandListWhitelist() {
+	names := make([]string, whitelistLength)
+	for i, jid := range settings.Whitelist {
+		names[i] = jidToName(jid)
+	}
+	dcSession.ChannelMessageSend(settings.ControlChannelID, "Whitelisted Conversations: ```"+strings.Join(names, "\n")+"```")
 }
 
 func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
@@ -311,15 +354,18 @@ func connectToWhatsApp() {
 	}
 }
 
-func waSendMessage(jid string, content string, attachments []*dc.MessageAttachment) {
-	for _, attachment := range attachments {
-		content += attachment.URL + "\n"
+func waSendMessage(jid string, message *dc.MessageCreate) {
+	for _, attachment := range message.Attachments {
+		message.Content += attachment.URL + "\n"
+	}
+	if settings.DiscordPrefix {
+		message.Content = "[" + message.Author.Username + "] " + message.Content
 	}
 	waConnection.Send(wa.TextMessage{
 		Info: wa.MessageInfo{
 			RemoteJid: jid,
 		},
-		Text: content,
+		Text: message.Content,
 	})
 }
 
@@ -499,7 +545,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.2.9" {
+	if versionInfo.TagName != "v0.3.0" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
@@ -548,6 +594,11 @@ func input(promptText string) string {
 	}
 	userInput = strings.ReplaceAll(userInput, "\n", "")
 	return strings.ReplaceAll(userInput, "\r", "")
+}
+
+func remove(s []string, i int) []string {
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
 }
 
 func firstRun() {

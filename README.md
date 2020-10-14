@@ -16,7 +16,17 @@ But most importantly you can open **Discord overlay** and reply to your messages
 ### Commands
 - `start <number with country code or name>`: Starts a new conversation
 - `list`: Lists existing chats
-- `list <chat name to search>`: Finds chats starting with the provided parameter
+- `list <chat name to search>`: Finds chats starting with the provided argument
+- `addToWhitelist <channel name>`: Adds conversations to the whitelist
+- `removeFromWhitelist <channel name>`: Adds conversation from the whitelist 
+- `listWhitelist`: Lists all whitelisted conversations
+
+---
+### Prefixing Messages Sent from Discord
+If you share your WhatsApp conversation with multiple people, this setting allows you to prefix messages with Discord usernames. To enable:
+1. Open `settings.json` with your choice of text editor
+1. Move to the line `"DiscordPrefix": false,`
+1. Change the `false` to `true`
 
 ---
 ### Setup
