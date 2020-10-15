@@ -359,7 +359,13 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		message.Content += attachment.URL + "\n"
 	}
 	if settings.DiscordPrefix {
-		message.Content = "[" + message.Author.Username + "] " + message.Content
+		var username string
+		if message.Member.Nick != "" {
+			username = message.Member.Nick
+		} else {
+			username = message.Author.Username
+		}
+		message.Content = "[" + username + "] " + message.Content
 	}
 	waConnection.Send(wa.TextMessage{
 		Info: wa.MessageInfo{
