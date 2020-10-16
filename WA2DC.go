@@ -354,6 +354,8 @@ func connectToWhatsApp() {
 	}
 }
 
+var lastMessage string
+
 func waSendMessage(jid string, message *dc.MessageCreate) {
 	for _, attachment := range message.Attachments {
 		message.Content += attachment.URL + "\n"
@@ -373,6 +375,7 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		},
 		Text: message.Content,
 	})
+	lastMessage = message.Content
 }
 
 type waHandler struct{}
@@ -405,9 +408,11 @@ func checkWhitelist(jid string) bool {
 }
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
-	if !message.Info.FromMe && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) && checkWhitelist(message.Info.RemoteJid) {
+	if (!message.Info.FromMe || (lastMessage != message.Text && message.Info.FromMe)) && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) && checkWhitelist(message.Info.RemoteJid) {
 		var username string
-		if message.Info.Source.Participant == nil {
+		if message.Info.FromMe {
+			username = "You"
+		} else if message.Info.Source.Participant == nil {
 			username = jidToName(message.Info.RemoteJid)
 		} else {
 			username = jidToName(*message.Info.Source.Participant)
@@ -427,7 +432,9 @@ func (waHandler) HandleTextMessage(message wa.TextMessage) {
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
 	if !info.FromMe && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid) {
 		var username string
-		if info.Source.Participant == nil {
+		if info.FromMe {
+			username = "You"
+		} else if info.Source.Participant == nil {
 			username = jidToName(info.RemoteJid)
 		} else {
 			username = jidToName(*info.Source.Participant)
@@ -551,7 +558,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.3.0" {
+	if versionInfo.TagName != "v0.3.1" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
