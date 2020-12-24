@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"regexp"
 	"strings"
 	"syscall"
@@ -460,6 +461,9 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 }
 
 func (waHandler) HandleImageMessage(message wa.ImageMessage) {
+	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
+		return
+	}
 	data, err := message.Download()
 	if err != nil {
 		return
@@ -468,6 +472,9 @@ func (waHandler) HandleImageMessage(message wa.ImageMessage) {
 }
 
 func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
+	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
+		return
+	}
 	data, err := message.Download()
 	if err != nil {
 		return
@@ -476,6 +483,9 @@ func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
 }
 
 func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
+	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
+		return
+	}
 	data, err := message.Download()
 	if err != nil {
 		return
@@ -484,11 +494,27 @@ func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
 }
 
 func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
+	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
+		return
+	}
 	data, err := message.Download()
 	if err != nil {
 		return
 	}
 	handleMediaMessage(message.Info, "", data, message.FileName)
+}
+
+func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
+	if (fileSize+16 > 8388608) && (!info.FromMe || (info.FromMe && lastMessageID != info.Id)) && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid) {
+		chat := getOrCreateChannel(info.RemoteJid)
+		dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+			Content:  "The user uploaded a file bigger than 8MB. Discord doesn't allow file uploads bigger than 8MB. Please check your WhatsApp to see the file.",
+			Username: "WA2DC",
+		})
+		return true
+	} else {
+		return false
+	}
 }
 
 func getOrCreateChannel(jid string) dc.Webhook {
@@ -557,7 +583,7 @@ func checkVersion() error {
 		return err
 	}
 
-	if versionInfo.TagName != "v0.3.1" {
+	if versionInfo.TagName != "v0.3.2" {
 		dcSession.ChannelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 
