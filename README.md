@@ -1,14 +1,14 @@
 
 # WhatsAppToDiscord
 
-WhatsAppToDiscord is a Discord bot uses WhatsApp Web for messaging in Discord built on top of [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo) libraries.
+WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Discord and WhatsApp. It is built on top of [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo) libraries.
 
 ### Features
 
 - Way too low memory usage than a web browser.
 - Supports media (Image, Video, Audio, Document)
-- Open Source (You can always compile by yourself)
-- Self Hosted (So your data never leaves you)
+- Open Source (You can always compile for yourself)
+- Self Hosted (You own your data)
 
 But most importantly you can open **Discord overlay** and reply to your messages **without a break.**
 
@@ -17,8 +17,8 @@ But most importantly you can open **Discord overlay** and reply to your messages
 - `start <number with country code or name>`: Starts a new conversation
 - `list`: Lists existing chats
 - `list <chat name to search>`: Finds chats starting with the provided argument
-- `addToWhitelist <channel name>`: Adds conversations to the whitelist
-- `removeFromWhitelist <channel name>`: Adds conversation from the whitelist 
+- `addToWhitelist <channel name>`: Adds specified conversation to the whitelist
+- `removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist 
 - `listWhitelist`: Lists all whitelisted conversations
 
 ---
@@ -29,6 +29,10 @@ If you share your WhatsApp conversation with multiple people, this setting allow
 1. Change the `false` to `true`
 
 ---
+### Restarting automatically (temporary solution)
+Run the start.bat, it will restart the bot if it crashes. If you do notice a restart please submit it on [Issues](https://github.com/FKLC/WhatsAppToDiscord/issues) tab, so I can further fix bugs of the bot.
+
+---
 ### Setup
 
 1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe)
@@ -37,11 +41,11 @@ If you share your WhatsApp conversation with multiple people, this setting allow
 1. Move to **"Bot"** section
 1. Click the **blue button** on the right with the text **"Add a bot"**
 1. Click the **blue button** on the right of icon of bot with the text **"Copy"**
-1. Then paste into WA2DC and press enter.
+1. Then paste it into WA2DC and press enter.
 1. A URL should appear. Open it in a browser. (It should look something like this: https://discordapp.com/oauth2/authorize?client_id=123456789&scope=bot&permissions=536879120)
 1. Accept the bot to your server (Recommendation: Create a new server for privacy)
 
 ---
-### This library is not something revolutionary
+### This is just a bot
 
-It uses the libraries already out there so all the kudos must go to [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo) projects. I just integrated them.
+It uses the libraries already out there so all the kudos to [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo). I just integrated them.
