@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -38,6 +39,12 @@ type githubReleaseResp struct {
 	Body    string `json:"body"`
 }
 
+type DCWebhook struct {
+	*dc.Webhook
+	LastTimestamp uint64 `json:"last_timestamp"`
+	LastMessageID string `json:"last_message_ID"`
+}
+
 var (
 	startTime    = time.Now()
 	settings     Settings
@@ -45,7 +52,7 @@ var (
 	dcSession    *dc.Session
 	guild        *dc.Guild
 	waConnection *wa.Conn
-	chats        = make(map[string]*dc.Webhook)
+	chats        = make(map[string]*DCWebhook)
 )
 
 func main() {
@@ -54,6 +61,7 @@ func main() {
 	defer file.Close()
 	log.SetOutput(file)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	defer logStack()
 
 	log.Println("Starting")
 
@@ -127,6 +135,14 @@ func parseChats() {
 		} else {
 			log.Panicln(err)
 		}
+	}
+}
+
+func logStack() {
+	if err := recover(); err != nil {
+		log.Println(err)
+		buf := make([]byte, 65536)
+		log.Println(string(buf[:runtime.Stack(buf, true)]))
 	}
 }
 
@@ -251,13 +267,13 @@ func dcCommandStart(parts []string) {
 }
 
 func dcCommandList(parts []string) {
-	searchPrefix := ""
+	query := ""
 	if len(parts) > 1 {
-		searchPrefix = strings.ToLower(strings.Join(parts[1:], " "))
+		query = strings.ToLower(strings.Join(parts[1:], " "))
 	}
 	list := "```"
 	for _, chat := range waConnection.Store.Chats {
-		if strings.HasPrefix(strings.ToLower(chat.Name), searchPrefix) {
+		if strings.Contains(strings.ToLower(chat.Name), query) {
 			list += chat.Name + "\n"
 		}
 	}
@@ -327,6 +343,7 @@ func initializeWhatsApp() {
 
 	connectToWhatsApp()
 	channelMessageSend(settings.ControlChannelID, "WhatsApp connection successfully made!")
+	startTime = time.Now()
 	waConnection.AddHandler(waHandler{})
 }
 
@@ -377,8 +394,6 @@ func connectToWhatsApp() {
 	}
 }
 
-var lastMessageID string
-
 func waSendMessage(jid string, message *dc.MessageCreate) {
 	for _, attachment := range message.Attachments {
 		message.Content += attachment.URL + "\n"
@@ -392,13 +407,13 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		}
 		message.Content = "[" + username + "] " + message.Content
 	}
-	var err error
-	lastMessageID, err = waConnection.Send(wa.TextMessage{
+	lastMessageID, err := waConnection.Send(wa.TextMessage{
 		Info: wa.MessageInfo{
 			RemoteJid: jid,
 		},
 		Text: message.Content,
 	})
+	chats[jid].LastMessageID = lastMessageID
 	handlePanic(err)
 }
 
@@ -428,7 +443,7 @@ func checkWhitelist(jid string) bool {
 }
 
 func (waHandler) HandleTextMessage(message wa.TextMessage) {
-	if (!message.Info.FromMe || (message.Info.FromMe && lastMessageID != message.Info.Id)) && startTime.Before(time.Unix(int64(message.Info.Timestamp), 0)) && checkWhitelist(message.Info.RemoteJid) {
+	if shouldBeSent(message.Info) {
 		var username string
 		if message.Info.FromMe {
 			username = "You"
@@ -444,11 +459,13 @@ func (waHandler) HandleTextMessage(message wa.TextMessage) {
 			Username: username,
 		})
 		handlePanic(err)
+		chats[message.Info.RemoteJid].LastMessageID = message.Info.Id
+		chats[message.Info.RemoteJid].LastTimestamp = message.Info.Timestamp
 	}
 }
 
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
-	if (!info.FromMe || (info.FromMe && lastMessageID != info.Id)) && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid) {
+	if shouldBeSent(info) {
 		var username string
 		if info.FromMe {
 			username = "You"
@@ -471,6 +488,8 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 		uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
 		_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+fileName+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
 		handlePanic(err)
+		chats[info.RemoteJid].LastMessageID = info.Id
+		chats[info.RemoteJid].LastTimestamp = info.Timestamp
 	}
 }
 
@@ -539,7 +558,7 @@ func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
 }
 
 func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
-	if (fileSize+16 > 8388608) && (!info.FromMe || (info.FromMe && lastMessageID != info.Id)) && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid) {
+	if fileSize+16 > 8388608 && shouldBeSent(info) {
 		chat := getOrCreateChannel(info.RemoteJid)
 		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
 			Content:  "The user uploaded a file larger than 8MB. Discord doesn't allow file uploads bigger than 8MB. Please check your WhatsApp to see the file.",
@@ -555,8 +574,16 @@ func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
 	}
 }
 
+func shouldBeSent(info wa.MessageInfo) bool {
+	var isLastSentMessage = false
+	if chats[info.RemoteJid] != nil {
+		isLastSentMessage = chats[info.RemoteJid].LastMessageID == info.Id
+	}
+	return (!info.FromMe || (info.FromMe && !isLastSentMessage)) && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid)
+}
+
 // Other stuff
-func getOrCreateChannel(jid string) dc.Webhook {
+func getOrCreateChannel(jid string) *DCWebhook {
 	chat, ok := chats[jid]
 	if !ok {
 		name := jidToName(jid)
@@ -567,10 +594,10 @@ func getOrCreateChannel(jid string) dc.Webhook {
 		handlePanic(err)
 		webhook, err := dcSession.WebhookCreate(channel.ID, "WA2DC", "")
 		handlePanic(err)
-		chats[jid] = webhook
+		chats[jid] = &DCWebhook{webhook, 0, ""}
 		chat = chats[jid]
 	}
-	return *chat
+	return chat
 }
 
 func createOrMergeWebhooks() {
@@ -585,14 +612,14 @@ func createOrMergeWebhooks() {
 		for jid, channelID := range oldVerChats {
 			webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
 			handlePanic(err)
-			chats[jid] = webhook
+			chats[jid] = &DCWebhook{webhook, 0, ""}
 		}
 	} else {
 		oldVerChats := make(map[string]string)
 		handlePanic(unmarshal("chats.json", &oldVerChats))
 
 		for jid, channelID := range oldVerChats {
-			chats[jid] = webhooks[channelID]
+			chats[jid] = &DCWebhook{webhooks[channelID], 0, ""}
 		}
 	}
 	handlePanic(marshal(settings.ChatsFilePath, &chats))
@@ -624,7 +651,7 @@ func checkVersion() {
 		log.Println("Update check failed. Error: " + err.Error())
 	}
 
-	if versionInfo.TagName != "v0.3.3" {
+	if versionInfo.TagName != "v0.3.4" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }

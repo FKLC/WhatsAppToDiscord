@@ -16,7 +16,7 @@ But most importantly you can open **Discord overlay** and reply to your messages
 ### Commands
 - `start <number with country code or name>`: Starts a new conversation
 - `list`: Lists existing chats
-- `list <chat name to search>`: Finds chats starting with the provided argument
+- `list <chat name to search>`: Finds chats that contain the given argument
 - `addToWhitelist <channel name>`: Adds specified conversation to the whitelist
 - `removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist 
 - `listWhitelist`: Lists all whitelisted conversations
