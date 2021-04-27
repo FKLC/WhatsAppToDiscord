@@ -459,8 +459,8 @@ func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 			Content:  message.Text,
 			Username: username,
 		})
-		if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
-			log.Println("Timed out while sending message. Error: " + err.Error())
+		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
+			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
 			handler.HandleTextMessage(message)
 			return
 		} else {
@@ -488,8 +488,8 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 				Content:  content,
 				Username: username,
 			})
-			if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
-				log.Println("Timed out while sending message. Error: " + err.Error())
+			if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
+				log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
 				handleMediaMessage(info, content, data, fileName, false)
 				return
 			} else {
@@ -499,8 +499,8 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 
 		uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
 		_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+fileName+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
-		if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
-			log.Println("Timed out while sending message. Error: " + err.Error())
+		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
+			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
 			handleMediaMessage(info, content, data, fileName, true)
 			return
 		} else {
@@ -671,7 +671,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.3.5" {
+	if versionInfo.TagName != "v0.3.6" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
