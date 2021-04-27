@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"reflect"
@@ -58,10 +59,9 @@ var (
 func main() {
 	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	handlePanic(err)
-	defer file.Close()
+	defer finishLogging(file)
 	log.SetOutput(file)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	defer logStack()
 
 	log.Println("Starting")
 
@@ -138,12 +138,13 @@ func parseChats() {
 	}
 }
 
-func logStack() {
+func finishLogging(file *os.File) {
 	if err := recover(); err != nil {
 		log.Println(err)
 		buf := make([]byte, 65536)
 		log.Println(string(buf[:runtime.Stack(buf, true)]))
 	}
+	file.Close()
 }
 
 // Discord
@@ -442,7 +443,7 @@ func checkWhitelist(jid string) bool {
 	return false
 }
 
-func (waHandler) HandleTextMessage(message wa.TextMessage) {
+func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 	if shouldBeSent(message.Info) {
 		var username string
 		if message.Info.FromMe {
@@ -458,13 +459,19 @@ func (waHandler) HandleTextMessage(message wa.TextMessage) {
 			Content:  message.Text,
 			Username: username,
 		})
-		handlePanic(err)
+		if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
+			log.Println("Timed out while sending message. Error: " + err.Error())
+			handler.HandleTextMessage(message)
+			return
+		} else {
+			handlePanic(err)
+		}
 		chats[message.Info.RemoteJid].LastMessageID = message.Info.Id
 		chats[message.Info.RemoteJid].LastTimestamp = message.Info.Timestamp
 	}
 }
 
-func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string) {
+func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string, skipContent bool) {
 	if shouldBeSent(info) {
 		var username string
 		if info.FromMe {
@@ -476,18 +483,29 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 		}
 
 		chat := getOrCreateChannel(info.RemoteJid)
-		if content != "" {
+		if content != "" && !skipContent {
 			_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
 				Content:  content,
 				Username: username,
-				File:     string(data),
 			})
-			handlePanic(err)
+			if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
+				log.Println("Timed out while sending message. Error: " + err.Error())
+				handleMediaMessage(info, content, data, fileName, false)
+				return
+			} else {
+				handlePanic(err)
+			}
 		}
 
 		uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
 		_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+fileName+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
-		handlePanic(err)
+		if err, isTimeoutErr := err.(*url.Error); isTimeoutErr && err.Timeout() {
+			log.Println("Timed out while sending message. Error: " + err.Error())
+			handleMediaMessage(info, content, data, fileName, true)
+			return
+		} else {
+			handlePanic(err)
+		}
 		chats[info.RemoteJid].LastMessageID = info.Id
 		chats[info.RemoteJid].LastTimestamp = info.Timestamp
 	}
@@ -507,7 +525,7 @@ func (waHandler) HandleImageMessage(message wa.ImageMessage) {
 	if message.Type != "" {
 		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
 	}
-	handleMediaMessage(message.Info, message.Caption, data, "image."+extension)
+	handleMediaMessage(message.Info, message.Caption, data, "image."+extension, false)
 }
 
 func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
@@ -524,7 +542,7 @@ func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
 	if message.Type != "" {
 		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
 	}
-	handleMediaMessage(message.Info, message.Caption, data, "video."+extension)
+	handleMediaMessage(message.Info, message.Caption, data, "video."+extension, false)
 }
 
 func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
@@ -541,7 +559,7 @@ func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
 	if message.Type != "" {
 		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
 	}
-	handleMediaMessage(message.Info, "", data, "audio."+extension)
+	handleMediaMessage(message.Info, "", data, "audio."+extension, false)
 }
 
 func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
@@ -554,11 +572,11 @@ func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
 		return
 	}
 
-	handleMediaMessage(message.Info, "", data, message.FileName)
+	handleMediaMessage(message.Info, "", data, message.FileName, false)
 }
 
 func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
-	if fileSize+16 > 8388608 && shouldBeSent(info) {
+	if fileSize > 8388531 && shouldBeSent(info) {
 		chat := getOrCreateChannel(info.RemoteJid)
 		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
 			Content:  "The user uploaded a file larger than 8MB. Discord doesn't allow file uploads bigger than 8MB. Please check your WhatsApp to see the file.",
@@ -641,6 +659,7 @@ func checkVersion() {
 	if err != nil {
 		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
 		log.Println("Update check failed. Error: " + err.Error())
+		return
 	}
 	defer r.Body.Close()
 
@@ -649,9 +668,10 @@ func checkVersion() {
 	if err != nil {
 		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
 		log.Println("Update check failed. Error: " + err.Error())
+		return
 	}
 
-	if versionInfo.TagName != "v0.3.4" {
+	if versionInfo.TagName != "v0.3.5" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
