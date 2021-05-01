@@ -414,8 +414,13 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		},
 		Text: message.Content,
 	})
-	chats[jid].LastMessageID = lastMessageID
+	if err != nil && err.Error() == "sending message timed out" {
+		log.Println("Timed out while sending message. Error: sending message timed out")
+		waSendMessage(jid, message)
+		return
+	}
 	handlePanic(err)
+	chats[jid].LastMessageID = lastMessageID
 }
 
 type waHandler struct{}
@@ -671,7 +676,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.3.6" {
+	if versionInfo.TagName != "v0.3.7" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
