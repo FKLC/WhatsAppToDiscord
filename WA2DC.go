@@ -145,6 +145,9 @@ func finishLogging(file *os.File) {
 		log.Println(string(buf[:runtime.Stack(buf, true)]))
 	}
 	file.Close()
+	marshal("settings.json", &settings)
+	marshal(settings.ChatsFilePath, chats)
+	dcSession.Close()
 }
 
 // Discord
@@ -408,16 +411,17 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		}
 		message.Content = "[" + username + "] " + message.Content
 	}
-	lastMessageID, err := waConnection.Send(wa.TextMessage{
+	var (
+		lastMessageID string
+		err           error
+	)
+	for lastMessageID, err = waConnection.Send(wa.TextMessage{
 		Info: wa.MessageInfo{
 			RemoteJid: jid,
 		},
 		Text: message.Content,
-	})
-	if err != nil && err.Error() == "sending message timed out" {
+	}); err != nil && err.Error() == "sending message timed out"; {
 		log.Println("Timed out while sending message. Error: sending message timed out")
-		waSendMessage(jid, message)
-		return
 	}
 	handlePanic(err)
 	chats[jid].LastMessageID = lastMessageID
@@ -610,13 +614,20 @@ func getOrCreateChannel(jid string) *DCWebhook {
 	chat, ok := chats[jid]
 	if !ok {
 		name := jidToName(jid)
-		channel, err := dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
+		var (
+			channel *dc.Channel
+			webhook *dc.Webhook
+			err     error
+		)
+		for channel, err = dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
 			Name:     name,
 			Type:     dc.ChannelTypeGuildText,
-			ParentID: settings.CategoryID})
-		handlePanic(err)
-		webhook, err := dcSession.WebhookCreate(channel.ID, "WA2DC", "")
-		handlePanic(err)
+			ParentID: settings.CategoryID}); err != nil; {
+			log.Println("Error occurred while creating channel. Error: " + err.Error())
+		}
+		for webhook, err = dcSession.WebhookCreate(channel.ID, "WA2DC", ""); err != nil; {
+			log.Println("Error occurred while creating channel. Error: " + err.Error())
+		}
 		chats[jid] = &DCWebhook{webhook, 0, ""}
 		chat = chats[jid]
 	}
@@ -676,7 +687,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.3.7" {
+	if versionInfo.TagName != "v0.3.8" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
