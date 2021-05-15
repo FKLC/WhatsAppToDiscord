@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,6 +45,33 @@ type DCWebhook struct {
 	LastMessageID string `json:"last_message_ID"`
 }
 
+type CappedLogger struct {
+	entries [1000]string
+	index   int
+}
+
+func (l *CappedLogger) println(depth int, v ...interface{}) {
+	l.entries[(l.index)%1000] = time.Now().Local().Format("2006/01/02 15:04:05 ") + l.getLine(depth) + " " + fmt.Sprintln(v...)
+	l.index++
+}
+
+func (l *CappedLogger) Println(v ...interface{}) {
+	l.println(3, v...)
+}
+
+func (l CappedLogger) String() string {
+	return strings.Join(append(l.entries[(l.index % 1000):][:], l.entries[:(l.index%1000)]...), "")
+}
+
+func (l CappedLogger) getLine(depth int) string {
+	_, file, line, ok := runtime.Caller(depth)
+	if !ok {
+		file = "???"
+		line = 0
+	}
+	return fmt.Sprintf("%v:%v:", file, line)
+}
+
 var (
 	startTime    = time.Now()
 	settings     Settings
@@ -54,14 +80,15 @@ var (
 	guild        *dc.Guild
 	waConnection *wa.Conn
 	chats        = make(map[string]*DCWebhook)
+	log          = CappedLogger{}
 )
 
 func main() {
 	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	handlePanic(err)
+	if err != nil {
+		panic(err)
+	}
 	defer finishLogging(file)
-	log.SetOutput(file)
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	log.Println("Starting")
 
@@ -112,7 +139,7 @@ func parseSettings() {
 				os.Exit(0)
 			}
 		} else {
-			log.Panicln(err)
+			panic(err)
 		}
 	}
 
@@ -133,20 +160,25 @@ func parseChats() {
 		} else if _, isOldVer := err.(*json.UnmarshalTypeError); isOldVer {
 			createOrMergeWebhooks()
 		} else {
-			log.Panicln(err)
+			panic(err)
 		}
 	}
 }
 
 func finishLogging(file *os.File) {
 	if err := recover(); err != nil {
-		log.Println(err)
+		log.println(2, err)
 		buf := make([]byte, 65536)
-		log.Println(string(buf[:runtime.Stack(buf, true)]))
+		log.println(2, string(buf[:runtime.Stack(buf, true)]))
 	}
+	file.Write([]byte(log.String()))
 	file.Close()
-	marshal("settings.json", &settings)
-	marshal(settings.ChatsFilePath, chats)
+	if settings.Token != "" {
+		marshal("settings.json", &settings)
+	}
+	if len(chats) != 0 {
+		marshal(settings.ChatsFilePath, chats)
+	}
 	dcSession.Close()
 }
 
@@ -394,7 +426,7 @@ func connectToWhatsApp() {
 		handlePanic(err)
 		handlePanic(ioutil.WriteFile(settings.SessionFilePath, sessionJSON, 0644))
 	} else {
-		log.Panicln(err)
+		panic(err)
 	}
 }
 
@@ -638,7 +670,7 @@ func createOrMergeWebhooks() {
 	webhooks := make(map[string]*dc.Webhook)
 	err := unmarshal("webhooks.json", &webhooks)
 	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
-		log.Panicln(err)
+		panic(err)
 	} else if isFileNotExistError {
 		oldVerChats := make(map[string]string)
 		handlePanic(unmarshal("chats.json", &oldVerChats))
@@ -687,7 +719,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.3.8" {
+	if versionInfo.TagName != "v0.3.9" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
@@ -743,7 +775,7 @@ func remove(s []string, i int) []string {
 
 func handlePanic(err error) {
 	if err != nil {
-		log.Panicln(err)
+		panic(err)
 	}
 }
 
