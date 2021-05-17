@@ -170,15 +170,15 @@ func finishLogging(file *os.File) {
 		log.println(2, err)
 		buf := make([]byte, 65536)
 		log.println(2, string(buf[:runtime.Stack(buf, true)]))
+		if settings.Token != "" {
+			marshal("settings.json", &settings)
+		}
+		if len(chats) != 0 {
+			marshal(settings.ChatsFilePath, chats)
+		}
 	}
 	file.Write([]byte(log.String()))
 	file.Close()
-	if settings.Token != "" {
-		marshal("settings.json", &settings)
-	}
-	if len(chats) != 0 {
-		marshal(settings.ChatsFilePath, chats)
-	}
 	dcSession.Close()
 }
 
@@ -204,7 +204,7 @@ func repairChannels() {
 
 	var matchedChats []string
 	for _, channel := range channels {
-		if channel.ParentID == settings.CategoryID && channel.ID != settings.ControlChannelID {
+		if channel.ID != settings.ControlChannelID {
 			exist := false
 			for jid, chat := range chats {
 				if chat.ChannelID == channel.ID {
@@ -213,7 +213,7 @@ func repairChannels() {
 					break
 				}
 			}
-			if !exist {
+			if !exist && channel.ParentID == settings.CategoryID {
 				_, err := dcSession.ChannelDelete(channel.ID)
 				handlePanic(err)
 			}
@@ -719,7 +719,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.3.9" {
+	if versionInfo.TagName != "v0.4.0" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
