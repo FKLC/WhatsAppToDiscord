@@ -375,7 +375,7 @@ func initializeWhatsApp() {
 	var err error
 	waConnection, err = wa.NewConn(20 * time.Second)
 	handlePanic(err)
-	waConnection.SetClientVersion(2, 2123, 7) // https://github.com/Rhymen/go-whatsapp/issues/304#issuecomment-604580880
+	waConnection.SetClientVersion(2, 2123, 7)
 
 	connectToWhatsApp()
 	channelMessageSend(settings.ControlChannelID, "WhatsApp connection successfully made!")
@@ -719,7 +719,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.0" {
+	if versionInfo.TagName != "v0.4.1" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
