@@ -50,6 +50,12 @@ type CappedLogger struct {
 	index   int
 }
 
+type ThumbUrl struct {
+	EURL   string `json:"eurl"`
+	Tag    string `json:"tag"`
+	Status int64  `json:"status"`
+}
+
 func (l *CappedLogger) println(depth int, v ...interface{}) {
 	l.entries[(l.index)%1000] = time.Now().Local().Format("2006/01/02 15:04:05 ") + l.getLine(depth) + " " + fmt.Sprintln(v...)
 	l.index++
@@ -486,9 +492,27 @@ func checkWhitelist(jid string) bool {
 
 func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 	if shouldBeSent(message.Info) {
+		if len(message.Text) > 1000 {
+			//so it doesnt throw 403 message too long error
+			message.Text = message.Text[:1000] + "...\n> Message limited to 1000 chars please check whatsapp to read more"
+		}
+		profilePicThumb, _ := waConnection.GetProfilePicThumb(message.Info.RemoteJid)
+		profilePic := <-profilePicThumb
+		thumbnail := ThumbUrl{}
+		profilePicError := json.Unmarshal([]byte(profilePic), &thumbnail)
+
+		var profilePicURL string = ""
+		if profilePicError != nil || thumbnail.Status == 404 {
+			profilePicURL = "https://cdn.discordapp.com/embed/avatars/1.png" //default discord profile pic url
+		} else {
+			profilePicURL = thumbnail.EURL
+		}
+
 		var username string
 		if message.Info.FromMe {
 			username = "You"
+			profilePicURL = "https://cdn.discordapp.com/embed/avatars/1.png" // need to replace this with the discord user's profile pic
+
 		} else if message.Info.Source.Participant == nil {
 			username = jidToName(message.Info.RemoteJid)
 		} else {
@@ -497,8 +521,9 @@ func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 
 		chat := getOrCreateChannel(message.Info.RemoteJid)
 		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  message.Text,
-			Username: username,
+			Content:   message.Text,
+			Username:  username,
+			AvatarURL: profilePicURL,
 		})
 		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
 			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
