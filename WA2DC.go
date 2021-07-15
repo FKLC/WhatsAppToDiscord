@@ -50,6 +50,17 @@ type CappedLogger struct {
 	index   int
 }
 
+type ThumbUrl struct {
+	EURL   string `json:"eurl"`
+	Tag    string `json:"tag"`
+	Status int64  `json:"status"`
+}
+
+type selfUser struct {
+	username  string
+	avatarURL string
+}
+
 func (l *CappedLogger) println(depth int, v ...interface{}) {
 	l.entries[(l.index)%1000] = time.Now().Local().Format("2006/01/02 15:04:05 ") + l.getLine(depth) + " " + fmt.Sprintln(v...)
 	l.index++
@@ -81,6 +92,7 @@ var (
 	waConnection *wa.Conn
 	chats        = make(map[string]*DCWebhook)
 	log          = CappedLogger{}
+	selfusr      = selfUser{}
 )
 
 func main() {
@@ -196,6 +208,27 @@ func initializeDiscord() {
 
 	guild, err = dcSession.Guild(settings.GuildID)
 	handlePanic(err)
+
+	fmt.Println("Active in Server :", guild.Name)
+	members, err := dcSession.GuildMembers(guild.ID, "", 100)
+
+	if err == nil {
+		for _, member := range members {
+			if !member.User.Bot {
+				if member.User.ID == guild.OwnerID {
+					fmt.Println("Setting Your Username to :", member.User.Username)
+					selfusr.username = member.User.Username + " (You)"
+					selfusr.avatarURL = member.User.AvatarURL("512")
+					break
+				}
+			}
+
+		}
+
+	} else {
+		fmt.Println(err)
+	}
+
 }
 
 func repairChannels() {
@@ -279,7 +312,7 @@ func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
 
 func dcCommandStart(parts []string) {
 	if len(parts) == 1 {
-		channelMessageSend(settings.ControlChannelID, "Please enter a phone number or name. Usage: `start <number with country code or name>`")
+		channelMessageSend(settings.ControlChannelID, "Please enter a phone number or name Usage: `start <number with country code or name>` ")
 		return
 	}
 	if isInt(parts[1]) {
@@ -486,9 +519,27 @@ func checkWhitelist(jid string) bool {
 
 func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 	if shouldBeSent(message.Info) {
+		if len(message.Text) > 1000 {
+			//so it doesnt throw 403 message too long error
+			message.Text = message.Text[:1000] + "...\n> Message limited to 1000 chars please check whatsapp to read more"
+		}
+		profilePicThumb, _ := waConnection.GetProfilePicThumb(message.Info.RemoteJid)
+		profilePic := <-profilePicThumb
+		thumbnail := ThumbUrl{}
+		profilePicError := json.Unmarshal([]byte(profilePic), &thumbnail)
+
+		var profilePicURL string = ""
+		if profilePicError != nil || thumbnail.Status == 404 {
+			profilePicURL = "https://cdn.discordapp.com/embed/avatars/1.png" //default discord profile pic url
+		} else {
+			profilePicURL = thumbnail.EURL
+		}
+
 		var username string
 		if message.Info.FromMe {
-			username = "You"
+			username = selfusr.username
+			profilePicURL = selfusr.avatarURL
+
 		} else if message.Info.Source.Participant == nil {
 			username = jidToName(message.Info.RemoteJid)
 		} else {
@@ -497,8 +548,9 @@ func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 
 		chat := getOrCreateChannel(message.Info.RemoteJid)
 		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  message.Text,
-			Username: username,
+			Content:   message.Text,
+			Username:  username,
+			AvatarURL: profilePicURL,
 		})
 		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
 			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
@@ -514,9 +566,21 @@ func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
 
 func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string, skipContent bool) {
 	if shouldBeSent(info) {
+		profilePicThumb, _ := waConnection.GetProfilePicThumb(info.RemoteJid)
+		profilePic := <-profilePicThumb
+		thumbnail := ThumbUrl{}
+		profilePicError := json.Unmarshal([]byte(profilePic), &thumbnail)
+
+		var profilePicURL string = ""
+		if profilePicError != nil || thumbnail.Status == 404 {
+			profilePicURL = "https://cdn.discordapp.com/embed/avatars/1.png" //default discord profile pic url
+		} else {
+			profilePicURL = thumbnail.EURL
+		}
 		var username string
 		if info.FromMe {
-			username = "You"
+			username = selfusr.username
+			profilePicURL = selfusr.avatarURL
 		} else if info.Source.Participant == nil {
 			username = jidToName(info.RemoteJid)
 		} else {
@@ -526,8 +590,9 @@ func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileNa
 		chat := getOrCreateChannel(info.RemoteJid)
 		if content != "" && !skipContent {
 			_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-				Content:  content,
-				Username: username,
+				Content:   content,
+				Username:  username,
+				AvatarURL: profilePicURL,
 			})
 			if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
 				log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
@@ -617,11 +682,22 @@ func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
 }
 
 func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
+	var username string
+	var profilePicURL string = ""
+	if info.FromMe {
+		username = selfusr.username
+		profilePicURL = selfusr.avatarURL
+	} else if info.Source.Participant == nil {
+		username = jidToName(info.RemoteJid)
+	} else {
+		username = jidToName(*info.Source.Participant)
+	}
 	if fileSize > 8388531 && shouldBeSent(info) {
 		chat := getOrCreateChannel(info.RemoteJid)
 		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  "The user uploaded a file larger than 8MB. Discord doesn't allow file uploads bigger than 8MB. Please check your WhatsApp to see the file.",
-			Username: "WA2DC",
+			Content:   "File Uploaded is greater than 8MB. Please check whatsapp",
+			Username:  username,
+			AvatarURL: profilePicURL,
 		})
 		if err != nil {
 			log.Println(err)
@@ -657,7 +733,7 @@ func getOrCreateChannel(jid string) *DCWebhook {
 			ParentID: settings.CategoryID}); err != nil; {
 			log.Println("Error occurred while creating channel. Error: " + err.Error())
 		}
-		for webhook, err = dcSession.WebhookCreate(channel.ID, "WA2DC", ""); err != nil; {
+		for webhook, err = dcSession.WebhookCreate(channel.ID, "WhatsappBridge", ""); err != nil; {
 			log.Println("Error occurred while creating channel. Error: " + err.Error())
 		}
 		chats[jid] = &DCWebhook{webhook, 0, ""}
@@ -676,7 +752,7 @@ func createOrMergeWebhooks() {
 		handlePanic(unmarshal("chats.json", &oldVerChats))
 
 		for jid, channelID := range oldVerChats {
-			webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
+			webhook, err := dcSession.WebhookCreate(channelID, "WhatsappBridge", "")
 			handlePanic(err)
 			chats[jid] = &DCWebhook{webhook, 0, ""}
 		}
@@ -703,7 +779,7 @@ func checkVersion() {
 		Timeout: time.Second * 2,
 	}
 
-	r, err := cl.Get("https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest")
+	r, err := cl.Get("https://api.github.com/repos/itsPacchu/WhatsAppToDiscord/releases/latest")
 	if err != nil {
 		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
 		log.Println("Update check failed. Error: " + err.Error())
@@ -719,8 +795,8 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.1" {
-		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
+	if versionInfo.TagName != "v0.4.2" {
+		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/itspacchu/WhatsAppToDiscord/releases/latest/download/. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
 
