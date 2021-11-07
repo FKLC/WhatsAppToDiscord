@@ -35,17 +35,19 @@ Run the start.bat, it will restart the bot if it crashes. If you do notice a res
 ---
 ### Setup
 
-1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe)
+1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases)
+1. Move the file you downloaded to a folder as the bot will create various files
 1. Go to [Discord applications](https://discordapp.com/developers/applications/)
 1. Click the **blue button** on the right upper corner with the text **"New Application"**
 1. Move to **"Bot"** section
 1. Click the **blue button** on the right with the text **"Add a bot"**
 1. Click the **blue button** on the right of icon of bot with the text **"Copy"**
-1. Then paste it into WA2DC and press enter.
+1. Run the bot
+1. Then paste it when it asks you to, and press enter
 1. A URL should appear. Open it in a browser. (It should look something like this: https://discordapp.com/oauth2/authorize?client_id=123456789&scope=bot&permissions=536879120)
 1. Accept the bot to your server (Recommendation: Create a new server for privacy)
 
 ---
 ### This is just a bot
 
-It uses the libraries already out there so all the kudos to [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo). I just integrated them.
+This bot uses libraries that are already out there. So, all the kudos to [whatsmeow](https://github.com/tulir/whatsmeow) and [discordgo](https://github.com/bwmarrin/discordgo). I just integrated them.

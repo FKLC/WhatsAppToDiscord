@@ -3,14 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
-	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -18,76 +19,35 @@ import (
 	"time"
 	"unicode"
 
-	wa "github.com/Rhymen/go-whatsapp"
 	dc "github.com/bwmarrin/discordgo"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/skip2/go-qrcode"
+	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
+	"go.mau.fi/whatsmeow/types/events"
+	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
-type Settings struct {
-	Token            string
-	GuildID          string
-	CategoryID       string
-	ControlChannelID string
-	Whitelist        []string
-	DiscordPrefix    bool
-	SessionFilePath  string
-	ChatsFilePath    string
-}
-
-type githubReleaseResp struct {
-	TagName string `json:"tag_name"`
-	Body    string `json:"body"`
-}
-
-type DCWebhook struct {
-	*dc.Webhook
-	LastTimestamp uint64 `json:"last_timestamp"`
-	LastMessageID string `json:"last_message_ID"`
-}
-
-type CappedLogger struct {
-	entries [1000]string
-	index   int
-}
-
-func (l *CappedLogger) println(depth int, v ...interface{}) {
-	l.entries[(l.index)%1000] = time.Now().Local().Format("2006/01/02 15:04:05 ") + l.getLine(depth) + " " + fmt.Sprintln(v...)
-	l.index++
-}
-
-func (l *CappedLogger) Println(v ...interface{}) {
-	l.println(3, v...)
-}
-
-func (l CappedLogger) String() string {
-	return strings.Join(append(l.entries[(l.index % 1000):][:], l.entries[:(l.index%1000)]...), "")
-}
-
-func (l CappedLogger) getLine(depth int) string {
-	_, file, line, ok := runtime.Caller(depth)
-	if !ok {
-		file = "???"
-		line = 0
-	}
-	return fmt.Sprintf("%v:%v:", file, line)
-}
-
 var (
-	startTime    = time.Now()
+	waClient     *whatsmeow.Client
 	settings     Settings
-	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats"
 	dcSession    *dc.Session
-	guild        *dc.Guild
-	waConnection *wa.Conn
 	chats        = make(map[string]*DCWebhook)
-	log          = CappedLogger{}
+	startTime    = time.Now()
+	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations"
+	guild        *dc.Guild
+	contacts     map[types.JID]types.ContactInfo
 )
 
 func main() {
+	log.SetFlags(log.Ltime | log.Lshortfile)
 	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
+	log.SetOutput(file)
 	defer finishLogging(file)
 
 	log.Println("Starting")
@@ -116,13 +76,49 @@ func main() {
 	<-sc
 
 	handlePanic(marshal("settings.json", &settings))
-	log.Println("settings.json saved")
 
 	handlePanic(marshal(settings.ChatsFilePath, chats))
-	log.Println("chats.json saved")
 
 	handlePanic(dcSession.Close())
-	log.Println("Discord connection closed")
+
+	waClient.Disconnect()
+}
+
+// General types and functions
+type fileLogger struct{}
+
+func (s *fileLogger) Errorf(msg string, args ...interface{}) { log.Println("ERROR", msg, args) }
+func (s *fileLogger) Warnf(msg string, args ...interface{})  { log.Println("WARN", msg, args) }
+func (s *fileLogger) Infof(msg string, args ...interface{})  { log.Println("INFO", msg, args) }
+func (s *fileLogger) Debugf(msg string, args ...interface{}) {}
+func (s *fileLogger) Sub(mod string) waLog.Logger {
+	return s
+}
+
+func finishLogging(file *os.File) {
+	if err := recover(); err != nil {
+		log.Println(err)
+		buf := make([]byte, 65536)
+		log.Println(string(buf[:runtime.Stack(buf, true)]))
+		if settings.Token != "" {
+			marshal("settings.json", &settings)
+		}
+		if len(chats) != 0 {
+			marshal(settings.ChatsFilePath, chats)
+		}
+	}
+	file.Close()
+}
+
+type Settings struct {
+	Token            string
+	GuildID          string
+	CategoryID       string
+	ControlChannelID string
+	Whitelist        []string
+	DiscordPrefix    bool
+	SessionFilePath  string
+	ChatsFilePath    string
 }
 
 func parseSettings() {
@@ -131,7 +127,7 @@ func parseSettings() {
 		if _, fileNotExist := err.(*os.PathError); fileNotExist {
 			firstRun()
 		} else if _, isJSONCorrupted := err.(*json.SyntaxError); isJSONCorrupted {
-			anwser := input("settings.json file seems to be corrupted. You can fix it manually or you will have to run setup again. Would you like to run setup? (Y/N): ")
+			anwser := input("settings.json file seems to be corrupted. You can fix it manually or you will have to run the	 setup again. Would you like to run setup? (Y/N): ")
 			if strings.ToLower(anwser) == "y" {
 				firstRun()
 			} else {
@@ -146,6 +142,42 @@ func parseSettings() {
 	whitelistLength = len(settings.Whitelist)
 }
 
+func firstRun() {
+	fmt.Println("It seems like this is your first run.")
+	settings.Token = input("Please enter your bot token: ")
+	dcSession, err := dc.New("Bot " + settings.Token)
+	handlePanic(err)
+	channelsCreated := make(chan bool)
+
+	dcSession.AddHandler(func(_ *dc.Session, guildCreate *dc.GuildCreate) {
+		settings.GuildID = guildCreate.ID
+		categoryChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name: "WhatsApp",
+			Type: dc.ChannelTypeGuildCategory})
+		handlePanic(err)
+		settings.CategoryID = categoryChannel.ID
+
+		controlChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name:     "control-room",
+			Type:     dc.ChannelTypeGuildText,
+			ParentID: settings.CategoryID})
+		handlePanic(err)
+		settings.ControlChannelID = controlChannel.ID
+		channelsCreated <- true
+	})
+
+	err = dcSession.Open()
+	handlePanic(err)
+	fmt.Println("You can invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=" + dcSession.State.User.ID + "&scope=bot&permissions=536879120")
+	<-channelsCreated
+	settings.SessionFilePath = "session.json"
+	settings.ChatsFilePath = "chats.json"
+	err = marshal("settings.json", &settings)
+	handlePanic(err)
+	log.Println("settings.json created")
+	fmt.Println("Settings saved.")
+}
+
 func parseChats() {
 	var err = unmarshal(settings.ChatsFilePath, &chats)
 	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
@@ -157,32 +189,64 @@ func parseChats() {
 				log.Println("User chose to fix chats.json manually")
 				os.Exit(0)
 			}
-		} else if _, isOldVer := err.(*json.UnmarshalTypeError); isOldVer {
-			createOrMergeWebhooks()
 		} else {
 			panic(err)
 		}
 	}
 }
 
-func finishLogging(file *os.File) {
-	if err := recover(); err != nil {
-		log.println(2, err)
-		buf := make([]byte, 65536)
-		log.println(2, string(buf[:runtime.Stack(buf, true)]))
-		if settings.Token != "" {
-			marshal("settings.json", &settings)
-		}
-		if len(chats) != 0 {
-			marshal(settings.ChatsFilePath, chats)
+var whitelistLength = 0
+
+func checkWhitelist(jid string) bool {
+	if whitelistLength == 0 {
+		return true
+	}
+	for _, allowedJid := range settings.Whitelist {
+		if jid == allowedJid {
+			return true
 		}
 	}
-	file.Write([]byte(log.String()))
-	file.Close()
-	dcSession.Close()
+	return false
 }
 
-// Discord
+type githubReleaseResp struct {
+	TagName string `json:"tag_name"`
+	Body    string `json:"body"`
+}
+
+func checkVersion() {
+	cl := http.Client{
+		Timeout: time.Second * 2,
+	}
+
+	r, err := cl.Get("https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest")
+	if err != nil {
+		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
+		log.Println("Update check failed. Error: " + err.Error())
+		return
+	}
+	defer r.Body.Close()
+
+	var versionInfo githubReleaseResp
+	err = json.NewDecoder(r.Body).Decode(&versionInfo)
+	if err != nil {
+		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
+		log.Println("Update check failed. Error: " + err.Error())
+		return
+	}
+
+	if versionInfo.TagName != "v0.4.2" {
+		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
+	}
+}
+
+// Discord related types and functions
+type DCWebhook struct {
+	dc.Webhook
+	LastTimestamp uint64 `json:"last_timestamp"`
+	LastMessageID string `json:"last_message_ID"`
+}
+
 func initializeDiscord() {
 	var err error
 	dcSession, err = dc.New("Bot " + settings.Token)
@@ -259,19 +323,10 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 		return
 	}
 
-	// If not a command try to send WhatsApp message
+	// Not a command, send a WhatsApp message
 	for key, chat := range chats {
 		if chat.ChannelID == message.ChannelID {
 			waSendMessage(key, message)
-			break
-		}
-	}
-}
-
-func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
-	for key, chat := range chats {
-		if chat.ChannelID == deletedChannel.ID {
-			delete(chats, key)
 			break
 		}
 	}
@@ -290,11 +345,11 @@ func dcCommandStart(parts []string) {
 		}
 	} else {
 		name := strings.Join(parts[1:], " ")
-		for jid, chat := range waConnection.Store.Chats {
-			if chat.Name == name {
-				getOrCreateChannel(jid)
+		for jid, info := range contacts {
+			if info.FullName == name {
+				getOrCreateChannel(jid.String())
 				if whitelistLength != 0 {
-					settings.Whitelist = append(settings.Whitelist, jid)
+					settings.Whitelist = append(settings.Whitelist, jid.String())
 					whitelistLength++
 				}
 			}
@@ -308,9 +363,9 @@ func dcCommandList(parts []string) {
 		query = strings.ToLower(strings.Join(parts[1:], " "))
 	}
 	list := "```"
-	for _, chat := range waConnection.Store.Chats {
-		if strings.Contains(strings.ToLower(chat.Name), query) {
-			list += chat.Name + "\n"
+	for _, info := range contacts {
+		if strings.Contains(strings.ToLower(info.FullName), query) {
+			list += info.FullName + "\n"
 		}
 	}
 	if list != "```" {
@@ -370,63 +425,105 @@ func dcCommandListWhitelist() {
 	channelMessageSend(settings.ControlChannelID, "Whitelisted Conversations: ```"+strings.Join(names, "\n")+"```")
 }
 
-// WhatsApp
-func initializeWhatsApp() {
-	var err error
-	waConnection, err = wa.NewConn(20 * time.Second)
-	handlePanic(err)
-	waConnection.SetClientVersion(2, 2123, 7)
+func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
+	for key, chat := range chats {
+		if chat.ChannelID == deletedChannel.ID {
+			delete(chats, key)
+			break
+		}
+	}
+}
 
+func channelMessageSend(channelID string, message string) {
+	_, err := dcSession.ChannelMessageSend(channelID, message)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func getOrCreateChannel(jid string) *DCWebhook {
+	chat, ok := chats[jid]
+	if !ok {
+		name := jidToName(jid)
+		var (
+			channel *dc.Channel
+			webhook *dc.Webhook
+			err     error
+		)
+		for channel, err = dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
+			Name:     name,
+			Type:     dc.ChannelTypeGuildText,
+			ParentID: settings.CategoryID}); err != nil; {
+			log.Println("Error occurred while creating channel. Error: " + err.Error())
+		}
+		for webhook, err = dcSession.WebhookCreate(channel.ID, "WA2DC", ""); err != nil; {
+			log.Println("Error occurred while creating channel. Error: " + err.Error())
+		}
+		chats[jid] = &DCWebhook{*webhook, 0, ""}
+		chat = chats[jid]
+	}
+	return chat
+}
+
+// Whatsapp
+func initializeWhatsApp() {
 	connectToWhatsApp()
 	channelMessageSend(settings.ControlChannelID, "WhatsApp connection successfully made!")
 	startTime = time.Now()
-	waConnection.AddHandler(waHandler{})
+	var err error
+	contacts, err = waClient.Store.Contacts.GetAllContacts()
+	handlePanic(err)
+	groups, err := waClient.GetJoinedGroups()
+	for _, group := range groups {
+		contacts[group.JID] = types.ContactInfo{Found: true, FirstName: group.Name, FullName: group.Name, PushName: group.Name, BusinessName: group.Name}
+	}
 }
 
 func connectToWhatsApp() {
-	var waSession wa.Session
-	err := unmarshal(settings.SessionFilePath, &waSession)
-	if err == nil {
-		_, err := waConnection.RestoreWithSession(waSession)
-		if err != nil {
-			channelMessageSend(settings.ControlChannelID, "Session couldn't restored. "+err.Error()+". Going to create a new session!")
-			handlePanic(os.Remove(settings.SessionFilePath))
-			connectToWhatsApp()
-			return
-		}
-	} else if _, ok := err.(*os.PathError); ok {
-		qrChan := make(chan string)
-		go func() {
-			var png []byte
-			png, err = qrcode.Encode(<-qrChan, qrcode.Medium, 256)
-			handlePanic(err)
-			f := bytes.NewReader(png)
-
-			_, err = dcSession.ChannelMessageSendComplex(settings.ControlChannelID, &dc.MessageSend{
-				Files: []*dc.File{
-					{
-						Name:   "qrcode.png",
-						Reader: f,
-					},
-				},
-			})
-			if err != nil {
-				log.Println(err)
-			}
-		}()
-		session, err := waConnection.Login(qrChan)
-		if err != nil && err.Error() == "qr code scan timed out" {
-			channelMessageSend(settings.ControlChannelID, "Timed out. Please rescan QR Code. "+err.Error())
-			connectToWhatsApp()
-			return
-		} else {
-			handlePanic(err)
-		}
-		sessionJSON, err := json.Marshal(session)
-		handlePanic(err)
-		handlePanic(ioutil.WriteFile(settings.SessionFilePath, sessionJSON, 0644))
-	} else {
+	container, err := sqlstore.New("sqlite3", "file:storage.db?_foreign_keys=on", &fileLogger{})
+	if err != nil {
 		panic(err)
+	}
+	deviceStore, err := container.GetFirstDevice()
+	if err != nil {
+		panic(err)
+	}
+	waClient = whatsmeow.NewClient(deviceStore, &fileLogger{})
+	waClient.AddEventHandler(messageHandler)
+
+	if waClient.Store.ID == nil {
+		// No ID stored, new login
+		qrChan, _ := waClient.GetQRChannel(context.Background())
+		err = waClient.Connect()
+		if err != nil {
+			panic(err)
+		}
+		for evt := range qrChan {
+			if evt.IsQR() {
+				var png []byte
+				png, err = qrcode.Encode(string(evt), qrcode.Medium, 256)
+				handlePanic(err)
+				f := bytes.NewReader(png)
+
+				_, err = dcSession.ChannelMessageSendComplex(settings.ControlChannelID, &dc.MessageSend{
+					Files: []*dc.File{
+						{
+							Name:   "qrcode.png",
+							Reader: f,
+						},
+					},
+				})
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	} else {
+		// Already logged in, just connect
+		err = waClient.Connect()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -447,283 +544,138 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		lastMessageID string
 		err           error
 	)
-	for lastMessageID, err = waConnection.Send(wa.TextMessage{
-		Info: wa.MessageInfo{
-			RemoteJid: jid,
-		},
-		Text: message.Content,
-	}); err != nil && err.Error() == "sending message timed out"; {
-		log.Println("Timed out while sending message. Error: sending message timed out")
+	lastMessageID = whatsmeow.GenerateMessageID()
+	pJid, _ := types.ParseJID(jid)
+	waClient.SendMessage(pJid, lastMessageID, &proto.Message{Conversation: &message.Content})
+	_, err = waClient.SendMessage(pJid, lastMessageID, &proto.Message{Conversation: &message.Content})
+	if err != nil {
+		channelMessageSend(message.ChannelID, "Failed to send message!")
 	}
-	handlePanic(err)
 	chats[jid].LastMessageID = lastMessageID
 }
 
-type waHandler struct{}
-
-func (waHandler) HandleError(err error) {
-	_, isConnectionClosed := err.(*wa.ErrConnectionClosed)
-	_, isConnectionFailed := err.(*wa.ErrConnectionFailed)
-	if isConnectionClosed || isConnectionFailed {
-		initializeWhatsApp()
+func jidToName(jid string) string {
+	if strings.HasPrefix(jid, waClient.Store.ID.User) {
+		return "You"
 	}
-	log.Println(err)
+	pJid, _ := types.ParseJID(jid)
+	name := contacts[pJid].FullName
+	if name == "" {
+		name = strings.Split(strings.Split(jid, "@")[0], "-")[0]
+	}
+	return name
 }
 
-var whitelistLength = 0
+var profilePicsCache = make(map[string]string)
 
-func checkWhitelist(jid string) bool {
-	if whitelistLength == 0 {
-		return true
-	}
-	for _, allowedJid := range settings.Whitelist {
-		if jid == allowedJid {
-			return true
-		}
-	}
-	return false
-}
+func messageHandler(evt interface{}) {
+	if m, ok := evt.(*events.Message); ok {
+		if shouldBeSent(m.Info) {
+			var username string
+			username = jidToName(m.Info.MessageSource.Sender.String())
 
-func (handler waHandler) HandleTextMessage(message wa.TextMessage) {
-	if shouldBeSent(message.Info) {
-		var username string
-		if message.Info.FromMe {
-			username = "You"
-		} else if message.Info.Source.Participant == nil {
-			username = jidToName(message.Info.RemoteJid)
-		} else {
-			username = jidToName(*message.Info.Source.Participant)
-		}
-
-		chat := getOrCreateChannel(message.Info.RemoteJid)
-		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  message.Text,
-			Username: username,
-		})
-		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
-			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
-			handler.HandleTextMessage(message)
-			return
-		} else {
-			handlePanic(err)
-		}
-		chats[message.Info.RemoteJid].LastMessageID = message.Info.Id
-		chats[message.Info.RemoteJid].LastTimestamp = message.Info.Timestamp
-	}
-}
-
-func handleMediaMessage(info wa.MessageInfo, content string, data []byte, fileName string, skipContent bool) {
-	if shouldBeSent(info) {
-		var username string
-		if info.FromMe {
-			username = "You"
-		} else if info.Source.Participant == nil {
-			username = jidToName(info.RemoteJid)
-		} else {
-			username = jidToName(*info.Source.Participant)
-		}
-
-		chat := getOrCreateChannel(info.RemoteJid)
-		if content != "" && !skipContent {
-			_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-				Content:  content,
-				Username: username,
-			})
-			if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
-				log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
-				handleMediaMessage(info, content, data, fileName, false)
-				return
+			var message_content string
+			if m.Message.GetExtendedTextMessage() != nil {
+				message_content = "> " + jidToName(*m.Message.GetExtendedTextMessage().ContextInfo.Participant) + ": " + strings.Join(strings.Split(*m.Message.GetExtendedTextMessage().ContextInfo.QuotedMessage.Conversation, "\n"), "\n> ") + "\n" + *m.Message.GetExtendedTextMessage().Text
 			} else {
-				handlePanic(err)
+				message_content = m.Message.GetConversation()
 			}
+			chat := getOrCreateChannel(m.Info.MessageSource.Chat.String())
+			var (
+				data     []byte
+				err      error
+				filename = ""
+			)
+			if m.Message.GetImageMessage() != nil {
+				data, err = waClient.Download(m.Message.GetImageMessage())
+				if m.Message.GetImageMessage().Caption != nil {
+					message_content = *m.Message.GetImageMessage().Caption
+				}
+				filename = "image." + strings.Split(*m.Message.GetImageMessage().Mimetype, "/")[1]
+			} else if m.Message.GetVideoMessage() != nil {
+				data, err = waClient.Download(m.Message.GetVideoMessage())
+				if m.Message.GetVideoMessage().Caption != nil {
+					message_content = *m.Message.GetVideoMessage().Caption
+				}
+				filename = "video." + strings.Split(*m.Message.GetVideoMessage().Mimetype, "/")[1]
+			} else if m.Message.GetAudioMessage() != nil {
+				data, err = waClient.Download(m.Message.GetAudioMessage())
+				extension := strings.Split(*m.Message.GetAudioMessage().Mimetype, "/")[1]
+				if strings.HasPrefix(extension, "ogg") {
+					extension = "ogg"
+				}
+				filename = "audio." + extension
+			} else if m.Message.GetDocumentMessage() != nil {
+				data, err = waClient.Download(m.Message.GetDocumentMessage())
+				filename = *m.Message.GetDocumentMessage().Title
+			} else if m.Message.GetStickerMessage() != nil {
+				data, err = waClient.Download(m.Message.GetStickerMessage())
+				filename = "sticker." + strings.Split(*m.Message.GetStickerMessage().Mimetype, "/")[1]
+			}
+			if err != nil {
+				dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+					Content:  "Received a file, but can't send it here. Check Whatsapp on your phone. Error: " + err.Error(),
+					Username: username,
+				})
+			} else if len(data) > 8388284 {
+				dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+					Content:  "Received a file, but it's over 8MB. Check Whatsapp on your phone.",
+					Username: username,
+				})
+			}
+
+			if data != nil {
+				uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
+				_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+filename+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
+				if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
+					log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
+					messageHandler(m)
+					return
+				} else {
+					handlePanic(err)
+				}
+			}
+
+			profilePicURL, exists := profilePicsCache[m.Info.MessageSource.Sender.String()]
+			if !exists {
+				profilePicInfo, _ := waClient.GetProfilePictureInfo(m.Info.MessageSource.Sender, true)
+				if profilePicInfo != nil {
+					profilePicsCache[m.Info.MessageSource.Sender.String()] = profilePicInfo.URL
+				} else {
+					profilePicsCache[m.Info.MessageSource.Sender.String()] = ""
+				}
+				profilePicURL, _ = profilePicsCache[m.Info.MessageSource.Sender.String()]
+			}
+			if message_content != "" {
+				_, err = dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
+					Content:   message_content,
+					Username:  username,
+					AvatarURL: profilePicURL,
+				})
+				if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
+					log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
+					messageHandler(m)
+					return
+				} else {
+					handlePanic(err)
+				}
+			}
+
+			chats[m.Info.MessageSource.Chat.String()].LastMessageID = m.Info.ID
+			chats[m.Info.MessageSource.Chat.String()].LastTimestamp = uint64(m.Info.Timestamp.Unix())
 		}
-
-		uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
-		_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+fileName+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
-		if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
-			log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
-			handleMediaMessage(info, content, data, fileName, true)
-			return
-		} else {
-			handlePanic(err)
-		}
-		chats[info.RemoteJid].LastMessageID = info.Id
-		chats[info.RemoteJid].LastTimestamp = info.Timestamp
 	}
 }
 
-func (waHandler) HandleImageMessage(message wa.ImageMessage) {
-	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
-		return
-	}
-	data, err := message.Download()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	extension := "jpeg"
-	if message.Type != "" {
-		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
-	}
-	handleMediaMessage(message.Info, message.Caption, data, "image."+extension, false)
-}
-
-func (waHandler) HandleVideoMessage(message wa.VideoMessage) {
-	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
-		return
-	}
-	data, err := message.Download()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	extension := "mp4"
-	if message.Type != "" {
-		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
-	}
-	handleMediaMessage(message.Info, message.Caption, data, "video."+extension, false)
-}
-
-func (waHandler) HandleAudioMessage(message wa.AudioMessage) {
-	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
-		return
-	}
-	data, err := message.Download()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	extension := "ogg"
-	if message.Type != "" {
-		extension = strings.Split(strings.Split(message.Type, "/")[1], ";")[0]
-	}
-	handleMediaMessage(message.Info, "", data, "audio."+extension, false)
-}
-
-func (waHandler) HandleDocumentMessage(message wa.DocumentMessage) {
-	if checkFileSizeLimit(reflect.ValueOf(&message).Elem().FieldByName("fileLength").Uint(), message.Info) {
-		return
-	}
-	data, err := message.Download()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	handleMediaMessage(message.Info, "", data, message.FileName, false)
-}
-
-func checkFileSizeLimit(fileSize uint64, info wa.MessageInfo) bool {
-	if fileSize > 8388531 && shouldBeSent(info) {
-		chat := getOrCreateChannel(info.RemoteJid)
-		_, err := dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-			Content:  "The user uploaded a file larger than 8MB. Discord doesn't allow file uploads bigger than 8MB. Please check your WhatsApp to see the file.",
-			Username: "WA2DC",
-		})
-		if err != nil {
-			log.Println(err)
-		}
-		log.Println("Received a file bigger than 8MB")
-		return true
-	} else {
-		return false
-	}
-}
-
-func shouldBeSent(info wa.MessageInfo) bool {
+func shouldBeSent(info types.MessageInfo) bool {
 	var isLastSentMessage = false
-	if chats[info.RemoteJid] != nil {
-		isLastSentMessage = chats[info.RemoteJid].LastMessageID == info.Id
+	if chats[info.MessageSource.Chat.String()] != nil {
+		isLastSentMessage = chats[info.MessageSource.Chat.String()].LastMessageID == info.ID
 	}
-	return (!info.FromMe || (info.FromMe && !isLastSentMessage)) && startTime.Before(time.Unix(int64(info.Timestamp), 0)) && checkWhitelist(info.RemoteJid)
+	return (!info.MessageSource.IsFromMe || (info.MessageSource.IsFromMe && !isLastSentMessage)) && startTime.Before(info.Timestamp) && checkWhitelist(info.MessageSource.Chat.String())
 }
 
-// Other stuff
-func getOrCreateChannel(jid string) *DCWebhook {
-	chat, ok := chats[jid]
-	if !ok {
-		name := jidToName(jid)
-		var (
-			channel *dc.Channel
-			webhook *dc.Webhook
-			err     error
-		)
-		for channel, err = dcSession.GuildChannelCreateComplex(guild.ID, dc.GuildChannelCreateData{
-			Name:     name,
-			Type:     dc.ChannelTypeGuildText,
-			ParentID: settings.CategoryID}); err != nil; {
-			log.Println("Error occurred while creating channel. Error: " + err.Error())
-		}
-		for webhook, err = dcSession.WebhookCreate(channel.ID, "WA2DC", ""); err != nil; {
-			log.Println("Error occurred while creating channel. Error: " + err.Error())
-		}
-		chats[jid] = &DCWebhook{webhook, 0, ""}
-		chat = chats[jid]
-	}
-	return chat
-}
-
-func createOrMergeWebhooks() {
-	webhooks := make(map[string]*dc.Webhook)
-	err := unmarshal("webhooks.json", &webhooks)
-	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
-		panic(err)
-	} else if isFileNotExistError {
-		oldVerChats := make(map[string]string)
-		handlePanic(unmarshal("chats.json", &oldVerChats))
-
-		for jid, channelID := range oldVerChats {
-			webhook, err := dcSession.WebhookCreate(channelID, "WA2DC", "")
-			handlePanic(err)
-			chats[jid] = &DCWebhook{webhook, 0, ""}
-		}
-	} else {
-		oldVerChats := make(map[string]string)
-		handlePanic(unmarshal("chats.json", &oldVerChats))
-
-		for jid, channelID := range oldVerChats {
-			chats[jid] = &DCWebhook{webhooks[channelID], 0, ""}
-		}
-	}
-	handlePanic(marshal(settings.ChatsFilePath, &chats))
-}
-
-func channelMessageSend(channelID string, message string) {
-	var _, err = dcSession.ChannelMessageSend(channelID, message)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-func checkVersion() {
-	cl := http.Client{
-		Timeout: time.Second * 2,
-	}
-
-	r, err := cl.Get("https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest")
-	if err != nil {
-		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
-		log.Println("Update check failed. Error: " + err.Error())
-		return
-	}
-	defer r.Body.Close()
-
-	var versionInfo githubReleaseResp
-	err = json.NewDecoder(r.Body).Decode(&versionInfo)
-	if err != nil {
-		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
-		log.Println("Update check failed. Error: " + err.Error())
-		return
-	}
-
-	if versionInfo.TagName != "v0.4.1" {
-		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
-	}
-}
-
+// Other
 func unmarshal(filename string, object interface{}) error {
 	JSONRaw, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -740,23 +692,6 @@ func marshal(filename string, object interface{}) error {
 	return ioutil.WriteFile(filename, JSONRaw, 0644)
 }
 
-func isInt(s string) bool {
-	for _, c := range s {
-		if !unicode.IsDigit(c) {
-			return false
-		}
-	}
-	return true
-}
-
-func jidToName(jid string) string {
-	name := waConnection.Store.Chats[jid].Name
-	if name == "" {
-		name = strings.Split(strings.Split(jid, "@")[0], "-")[0]
-	}
-	return name
-}
-
 func input(promptText string) string {
 	fmt.Print(promptText)
 	reader := bufio.NewReader(os.Stdin)
@@ -768,49 +703,22 @@ func input(promptText string) string {
 	return strings.ReplaceAll(userInput, "\r", "")
 }
 
-func remove(s []string, i int) []string {
-	s[len(s)-1], s[i] = s[i], s[len(s)-1]
-	return s[:len(s)-1]
-}
-
 func handlePanic(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
-func firstRun() {
-	fmt.Println("It seems like this is your first run.")
-	settings.Token = input("Please enter your bot token: ")
-	dcSession, err := dc.New("Bot " + settings.Token)
-	handlePanic(err)
-	channelsCreated := make(chan bool)
+func isInt(s string) bool {
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
+}
 
-	dcSession.AddHandler(func(_ *dc.Session, guildCreate *dc.GuildCreate) {
-		settings.GuildID = guildCreate.ID
-		categoryChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
-			Name: "WhatsApp",
-			Type: dc.ChannelTypeGuildCategory})
-		handlePanic(err)
-		settings.CategoryID = categoryChannel.ID
-
-		controlChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
-			Name:     "control-room",
-			Type:     dc.ChannelTypeGuildText,
-			ParentID: settings.CategoryID})
-		handlePanic(err)
-		settings.ControlChannelID = controlChannel.ID
-		channelsCreated <- true
-	})
-
-	err = dcSession.Open()
-	handlePanic(err)
-	fmt.Println("You can invite bot from: https://discordapp.com/oauth2/authorize?client_id=" + dcSession.State.User.ID + "&scope=bot&permissions=536879120")
-	<-channelsCreated
-	settings.SessionFilePath = "session.json"
-	settings.ChatsFilePath = "chats.json"
-	err = marshal("settings.json", &settings)
-	handlePanic(err)
-	log.Println("settings.json created")
-	fmt.Println("Settings saved.")
+func remove(s []string, i int) []string {
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
 }

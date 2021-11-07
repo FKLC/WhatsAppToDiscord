@@ -1,3 +1,5 @@
 *.json
 *.exe
+storage.db
 logs.txt
+bin/
