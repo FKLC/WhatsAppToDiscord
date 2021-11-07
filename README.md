@@ -1,7 +1,7 @@
 
 # WhatsAppToDiscord
 
-WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Discord and WhatsApp. It is built on top of [go-whatsapp](https://github.com/Rhymen/go-whatsapp) and [discordgo](https://github.com/bwmarrin/discordgo) libraries.
+WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Discord and WhatsApp. It is built on top of [whatsmeow](https://github.com/tulir/whatsmeow) and [discordgo](https://github.com/bwmarrin/discordgo) libraries.
 
 ### Features
 
