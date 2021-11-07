@@ -46,6 +46,8 @@ Run the start.bat, it will restart the bot if it crashes. If you do notice a res
 1. Then paste it when it asks you to, and press enter
 1. A URL should appear. Open it in a browser. (It should look something like this: https://discordapp.com/oauth2/authorize?client_id=123456789&scope=bot&permissions=536879120)
 1. Accept the bot to your server (Recommendation: Create a new server for privacy)
+1. Activate multi-device feature on WhatsApp by following [their guide](https://faq.whatsapp.com/web/download-and-installation/how-to-join-or-leave-the-multi-device-beta)
+1. Scan the code QR code the bot sent to `#control-channel`
 
 ---
 ### This is just a bot
