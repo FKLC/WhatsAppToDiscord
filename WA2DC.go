@@ -233,7 +233,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.2" {
+	if versionInfo.TagName != "v0.4.3" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
@@ -263,6 +263,41 @@ func initializeDiscord() {
 func repairChannels() {
 	channels, err := dcSession.GuildChannels(settings.GuildID)
 	handlePanic(err)
+
+	categoryChannelExists := false
+	controlChannelExists := false
+	for _, channel := range channels {
+		if channel.ID == settings.CategoryID {
+			categoryChannelExists = true
+		}
+		if channel.ID == settings.ControlChannelID {
+			controlChannelExists = true
+		}
+	}
+
+	if !categoryChannelExists {
+		categoryChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name: "WhatsApp",
+			Type: dc.ChannelTypeGuildCategory})
+		handlePanic(err)
+		settings.CategoryID = categoryChannel.ID
+		channels = append(channels, categoryChannel)
+	}
+
+	if !controlChannelExists {
+		controlChannel, err := dcSession.GuildChannelCreateComplex(settings.GuildID, dc.GuildChannelCreateData{
+			Name:     "control-room",
+			Type:     dc.ChannelTypeGuildText,
+			ParentID: settings.CategoryID})
+		handlePanic(err)
+		settings.ControlChannelID = controlChannel.ID
+		channels = append(channels, controlChannel)
+	}
+
+	dcSession.ChannelEditComplex(settings.ControlChannelID, &dc.ChannelEdit{ParentID: settings.CategoryID})
+	for _, webhook := range chats {
+		dcSession.ChannelEditComplex(webhook.ChannelID, &dc.ChannelEdit{ParentID: settings.CategoryID})
+	}
 
 	var matchedChats []string
 	for _, channel := range channels {
@@ -538,18 +573,31 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		}
 		message.Content = "[" + username + "] " + message.Content
 	}
-	var (
-		lastMessageID string
-		err           error
-	)
-	lastMessageID = whatsmeow.GenerateMessageID()
 	pJid, _ := types.ParseJID(jid)
-	waClient.SendMessage(pJid, lastMessageID, &proto.Message{Conversation: &message.Content})
-	_, err = waClient.SendMessage(pJid, lastMessageID, &proto.Message{Conversation: &message.Content})
-	if err != nil {
-		channelMessageSend(message.ChannelID, "Failed to send message!")
+	whatsappMessage := &proto.Message{Conversation: &message.Content}
+	if message.MessageReference != nil {
+		quotedMessage, _ := dcSession.ChannelMessage(message.MessageReference.ChannelID, message.MessageReference.MessageID)
+		var participantJid string
+		if quotedMessage.WebhookID != "" && quotedMessage.Author.Username != "You" {
+			for jid, info := range contacts {
+				if info.FullName == quotedMessage.Author.Username {
+					participantJid = jid.String()
+					break
+				}
+			}
+			if participantJid == "" {
+				participantJid = quotedMessage.Author.Username + "@" + waClient.Store.ID.Server
+			}
+		} else {
+			participantJid = waClient.Store.ID.User + "@" + waClient.Store.ID.Server
+		}
+		whatsappMessage = &proto.Message{ExtendedTextMessage: &proto.ExtendedTextMessage{Text: &message.Content, ContextInfo: &proto.ContextInfo{Participant: &participantJid, QuotedMessage: &proto.Message{Conversation: &quotedMessage.Content}}}}
 	}
-	chats[jid].LastMessageID = lastMessageID
+	_, err := waClient.SendMessage(pJid, message.ID, whatsappMessage)
+	if err != nil {
+		channelMessageSend(message.ChannelID, "Failed to send message! Error: "+err.Error())
+	}
+	chats[jid].LastMessageID = message.ID
 }
 
 func jidToName(jid string) string {
@@ -574,6 +622,8 @@ func messageHandler(evt interface{}) {
 
 			var message_content string
 			if m.Message.GetExtendedTextMessage() != nil {
+				a, _ := json.Marshal(m.Message.GetExtendedTextMessage())
+				fmt.Println(string(a))
 				message_content = "> " + jidToName(*m.Message.GetExtendedTextMessage().ContextInfo.Participant) + ": " + strings.Join(strings.Split(*m.Message.GetExtendedTextMessage().ContextInfo.QuotedMessage.Conversation, "\n"), "\n> ") + "\n" + *m.Message.GetExtendedTextMessage().Text
 			} else {
 				message_content = m.Message.GetConversation()
