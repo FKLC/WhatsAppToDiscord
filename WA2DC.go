@@ -91,9 +91,7 @@ func (s *fileLogger) Errorf(msg string, args ...interface{}) { log.Println("ERRO
 func (s *fileLogger) Warnf(msg string, args ...interface{})  { log.Println("WARN", msg, args) }
 func (s *fileLogger) Infof(msg string, args ...interface{})  { log.Println("INFO", msg, args) }
 func (s *fileLogger) Debugf(msg string, args ...interface{}) {}
-func (s *fileLogger) Sub(mod string) waLog.Logger {
-	return s
-}
+func (s *fileLogger) Sub(mod string) waLog.Logger            { return s }
 
 func finishLogging(file *os.File) {
 	if err := recover(); err != nil {
@@ -555,7 +553,7 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 }
 
 func jidToName(jid string) string {
-	if strings.HasPrefix(jid, waClient.Store.ID.User) {
+	if strings.HasPrefix(jid, waClient.Store.ID.User) && !strings.HasSuffix(jid, "@g.us") {
 		return "You"
 	}
 	pJid, _ := types.ParseJID(jid)
