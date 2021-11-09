@@ -39,7 +39,7 @@ var (
 	dcSession    *dc.Session
 	chats        = make(map[string]*DCWebhook)
 	startTime    = time.Now()
-	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations"
+	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enablePrefix`: Adds your Discord username to messages\n`disablePrefix`: Stops adding your Discord username to messages"
 	guild        *dc.Guild
 	contacts     map[types.JID]types.ContactInfo
 	dbConnection *sql.DB
@@ -390,6 +390,12 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 			dcCommandRemoveFromWhitelist(message.Content)
 		case "listwhitelist":
 			dcCommandListWhitelist()
+		case "enableprefix":
+			settings.DiscordPrefix = true
+			channelMessageSend(settings.ControlChannelID, "Username prefix enabled!")
+		case "disableprefix":
+			settings.DiscordPrefix = false
+			channelMessageSend(settings.ControlChannelID, "Username prefix disabled!")
 		default:
 			channelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
 		}

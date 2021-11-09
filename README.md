@@ -22,13 +22,6 @@ But most importantly you can open **Discord overlay** and reply to your messages
 - `listWhitelist`: Lists all whitelisted conversations
 
 ---
-### Prefixing Messages Sent from Discord
-If you share your WhatsApp conversation with multiple people, this setting allows you to prefix messages with Discord usernames. To enable:
-1. Open `settings.json` with your choice of text editor
-1. Move to the line `"DiscordPrefix": false,`
-1. Change the `false` to `true`
-
----
 ### Restarting automatically
 Run the start.bat, it will restart the bot if it crashes. If you do notice a restart please submit it on [Issues](https://github.com/FKLC/WhatsAppToDiscord/issues) tab, so I can further fix bugs of the bot.
 
@@ -47,8 +40,9 @@ Run the start.bat, it will restart the bot if it crashes. If you do notice a res
 11. Accept the bot to your server (Recommendation: Create a new server for privacy)
 12. Activate multi-device feature on WhatsApp by following [their guide](https://faq.whatsapp.com/web/download-and-installation/how-to-join-or-leave-the-multi-device-beta)
 13. Scan the code QR code the bot sent to `#control-channel`
+
 ---
-You can host this on Heroku, but you may get banned. WhatsApp can recognize Heroku's IP adresses and may **BAN** you. However, if you still want to host this on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord), and follow steps 3 to 7, and paste the token to BOT_TOKEN.
+You can host this on Heroku, but you may get banned. WhatsApp can recognize Heroku's IP addresses and may **BAN** you. However, if you still want to host this on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord), and follow steps 3 to 7, and paste the token to BOT_TOKEN.
 
 ---
 ### This is just a bot
