@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"unicode"
 
 	dc "github.com/bwmarrin/discordgo"
+	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
@@ -39,27 +42,25 @@ var (
 	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations"
 	guild        *dc.Guild
 	contacts     map[types.JID]types.ContactInfo
+	dbConnection *sql.DB
 )
 
 func main() {
-	log.SetFlags(log.Ltime | log.Lshortfile)
-	file, err := os.OpenFile("logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		panic(err)
-	}
-	log.SetOutput(file)
-	defer finishLogging(file)
+	defer finishLogging(initializeLogging())
 
 	log.Println("Starting")
 
+	initializeDB()
+	log.Println("Initialized database connection")
+
 	parseSettings()
-	log.Println("settings.json parsed")
+	log.Println("Settings parsed")
 
 	initializeDiscord()
 	log.Println("Discord handlers added")
 
 	parseChats()
-	log.Println("chats.json parsed")
+	log.Println("Chats parsed")
 
 	repairChannels()
 	log.Println("Channels repaired")
@@ -75,16 +76,28 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
-	handlePanic(marshal("settings.json", &settings))
+	save()
 
-	handlePanic(marshal(settings.ChatsFilePath, chats))
-
+	handlePanic(dbConnection.Close())
 	handlePanic(dcSession.Close())
-
 	waClient.Disconnect()
 }
 
 // General types and functions
+func initializeLogging() *os.File {
+	log.SetFlags(log.Ltime | log.Lshortfile)
+	logFilename := "logs.txt"
+	if os.Getenv("DYNO") != "" {
+		logFilename = "/tmp/logs.txt"
+	}
+	file, err := os.OpenFile(logFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+	log.SetOutput(file)
+	return file
+}
+
 type fileLogger struct{}
 
 func (s *fileLogger) Errorf(msg string, args ...interface{}) { log.Println("ERROR", msg, args) }
@@ -98,12 +111,7 @@ func finishLogging(file *os.File) {
 		log.Println(err)
 		buf := make([]byte, 65536)
 		log.Println(string(buf[:runtime.Stack(buf, true)]))
-		if settings.Token != "" {
-			marshal("settings.json", &settings)
-		}
-		if len(chats) != 0 {
-			marshal(settings.ChatsFilePath, chats)
-		}
+		save()
 	}
 	file.Close()
 }
@@ -115,12 +123,17 @@ type Settings struct {
 	ControlChannelID string
 	Whitelist        []string
 	DiscordPrefix    bool
-	SessionFilePath  string
-	ChatsFilePath    string
 }
 
 func parseSettings() {
-	var err = unmarshal("settings.json", &settings)
+	var result sql.NullString
+	getData("settings", &result)
+	var err error
+	if result.Valid == true {
+		err = json.Unmarshal([]byte(result.String), &settings)
+	} else {
+		err = unmarshal("settings.json", &settings)
+	}
 	if err != nil {
 		if _, fileNotExist := err.(*os.PathError); fileNotExist {
 			firstRun()
@@ -135,14 +148,23 @@ func parseSettings() {
 		} else {
 			panic(err)
 		}
+	} else if settings.Token == "" {
+		firstRun()
 	}
+	settingsJSON, _ := json.Marshal(settings)
+	insertOrUpdate("settings", string(settingsJSON))
+	os.Remove("settings.json")
 
 	whitelistLength = len(settings.Whitelist)
 }
 
 func firstRun() {
 	fmt.Println("It seems like this is your first run.")
-	settings.Token = input("Please enter your bot token: ")
+	if os.Getenv("DYNO") != "" {
+		settings.Token = os.Getenv("BOT_TOKEN")
+	} else {
+		settings.Token = input("Please enter your bot token: ")
+	}
 	dcSession, err := dc.New("Bot " + settings.Token)
 	handlePanic(err)
 	channelsCreated := make(chan bool)
@@ -168,29 +190,41 @@ func firstRun() {
 	handlePanic(err)
 	fmt.Println("You can invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=" + dcSession.State.User.ID + "&scope=bot&permissions=536879120")
 	<-channelsCreated
-	settings.SessionFilePath = "session.json"
-	settings.ChatsFilePath = "chats.json"
-	err = marshal("settings.json", &settings)
+	save()
 	handlePanic(err)
-	log.Println("settings.json created")
 	fmt.Println("Settings saved.")
 }
 
 func parseChats() {
-	var err = unmarshal(settings.ChatsFilePath, &chats)
-	if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
-		if _, isJSONCorrupted := err.(*json.SyntaxError); isJSONCorrupted {
-			anwser := input("chats.json file seems to be corrupted. You can fix it manually or the bot won't send messages to old channels and start to create new ones. Would you like to reset? (Y/N): ")
-			if strings.ToLower(anwser) == "y" {
-				handlePanic(marshal(settings.ChatsFilePath, chats))
+	var result sql.NullString
+	getData("chats", &result)
+	if result.Valid == true {
+		json.Unmarshal([]byte(result.String), &chats)
+	} else {
+		var err = unmarshal("chats.json", &chats)
+		if _, isFileNotExistError := err.(*os.PathError); !isFileNotExistError && err != nil {
+			if _, isJSONCorrupted := err.(*json.SyntaxError); isJSONCorrupted {
+				anwser := input("chats.json file seems to be corrupted. You can fix it manually or the bot won't send messages to old channels and start to create new ones. Would you like to reset? (Y/N): ")
+				if strings.ToLower(anwser) == "y" {
+					handlePanic(marshal("chats.json", chats))
+				} else {
+					log.Println("User chose to fix chats.json manually")
+					os.Exit(0)
+				}
 			} else {
-				log.Println("User chose to fix chats.json manually")
-				os.Exit(0)
+				panic(err)
 			}
-		} else {
-			panic(err)
 		}
+		os.Remove("chats.json")
 	}
+}
+
+func save() {
+	data, _ := json.Marshal(settings)
+	insertOrUpdate("settings", string(data))
+
+	data, _ = json.Marshal(chats)
+	insertOrUpdate("chats", string(data))
 }
 
 var whitelistLength = 0
@@ -253,6 +287,7 @@ func initializeDiscord() {
 	dcSession.AddHandler(dcOnMessageCreate)
 	dcSession.AddHandler(dcOnChannelDelete)
 
+	log.Println(settings.Token)
 	err = dcSession.Open()
 	handlePanic(err)
 
@@ -294,9 +329,14 @@ func repairChannels() {
 		channels = append(channels, controlChannel)
 	}
 
-	dcSession.ChannelEditComplex(settings.ControlChannelID, &dc.ChannelEdit{ParentID: settings.CategoryID})
-	for _, webhook := range chats {
-		dcSession.ChannelEditComplex(webhook.ChannelID, &dc.ChannelEdit{ParentID: settings.CategoryID})
+	dcSession.ChannelEditComplex(settings.ControlChannelID, &dc.ChannelEdit{Position: 0, ParentID: settings.CategoryID})
+	for _, channel := range channels {
+		for _, webhook := range chats {
+			if channel.ID == webhook.ChannelID {
+				dcSession.ChannelEditComplex(webhook.ChannelID, &dc.ChannelEdit{Position: 999, ParentID: settings.CategoryID})
+			}
+			break
+		}
 	}
 
 	var matchedChats []string
@@ -499,6 +539,7 @@ func getOrCreateChannel(jid string) *DCWebhook {
 }
 
 // Whatsapp
+
 func initializeWhatsApp() {
 	connectToWhatsApp()
 	channelMessageSend(settings.ControlChannelID, "WhatsApp connection successfully made!")
@@ -513,14 +554,10 @@ func initializeWhatsApp() {
 }
 
 func connectToWhatsApp() {
-	container, err := sqlstore.New("sqlite3", "file:storage.db?_foreign_keys=on", &fileLogger{})
-	if err != nil {
-		panic(err)
-	}
+	container, err := NewSQLStore(reflect.ValueOf(dbConnection).Type().Name(), &fileLogger{})
+	handlePanic(err)
 	deviceStore, err := container.GetFirstDevice()
-	if err != nil {
-		panic(err)
-	}
+	handlePanic(err)
 	waClient = whatsmeow.NewClient(deviceStore, &fileLogger{})
 	waClient.AddEventHandler(messageHandler)
 
@@ -528,9 +565,7 @@ func connectToWhatsApp() {
 		// No ID stored, new login
 		qrChan, _ := waClient.GetQRChannel(context.Background())
 		err = waClient.Connect()
-		if err != nil {
-			panic(err)
-		}
+		handlePanic(err)
 		for evt := range qrChan {
 			if evt.IsQR() {
 				var png []byte
@@ -554,10 +589,18 @@ func connectToWhatsApp() {
 	} else {
 		// Already logged in, just connect
 		err = waClient.Connect()
-		if err != nil {
-			panic(err)
-		}
+		handlePanic(err)
 	}
+}
+
+func NewSQLStore(dialect string, log waLog.Logger) (*sqlstore.Container, error) {
+	// Modified sqlstore.New function
+	container := sqlstore.NewWithDB(dbConnection, dialect, log)
+	err := container.Upgrade()
+	if err != nil {
+		return nil, fmt.Errorf("failed to upgrade database: %w", err)
+	}
+	return container, nil
 }
 
 func waSendMessage(jid string, message *dc.MessageCreate) {
@@ -723,7 +766,40 @@ func shouldBeSent(info types.MessageInfo) bool {
 	return (!info.MessageSource.IsFromMe || (info.MessageSource.IsFromMe && !isLastSentMessage)) && startTime.Before(info.Timestamp) && checkWhitelist(info.MessageSource.Chat.String())
 }
 
+// Database functions and variables
+
+func initializeDB() {
+	driverName := "sqlite3"
+	address := "file:storage.db?_foreign_keys=on"
+	if os.Getenv("DYNO") != "" {
+		driverName = "postgres"
+		address = os.Getenv("DATABASE_URL")
+	}
+	err := connectDB(driverName, address)
+	handlePanic(err)
+	_, err = dbConnection.Exec("CREATE TABLE IF NOT EXISTS WA2DC (name VARCHAR PRIMARY KEY, data TEXT);")
+	handlePanic(err)
+}
+
+func connectDB(dialect, address string) (err error) {
+	dbConnection, err = sql.Open(dialect, address)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	return nil
+}
+
+func insertOrUpdate(name string, data string) {
+	_, err := dbConnection.Exec("INSERT INTO WA2DC (name, data) VALUES($1, $2) ON CONFLICT(name) DO UPDATE SET data=excluded.data;", name, data)
+	handlePanic(err)
+}
+
+func getData(name string, dest *sql.NullString) error {
+	return dbConnection.QueryRow("SELECT data FROM WA2DC WHERE name=$1", name).Scan(dest)
+}
+
 // Other
+
 func unmarshal(filename string, object interface{}) error {
 	JSONRaw, err := ioutil.ReadFile(filename)
 	if err != nil {

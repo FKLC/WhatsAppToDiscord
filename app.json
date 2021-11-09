@@ -1,0 +1,13 @@
+{
+    "name": "WhatsAppToDiscord",
+    "description": "WhatsAppToDiscord is a Discord bot that uses WhatsApp Web for messaging in Discord built on top of whatsmeow and discordgo.",
+    "repository": "https://github.com/FKLC/WhatsAppToDiscord",
+    "env": {
+        "BOT_TOKEN": {
+            "description": "Your bot token that you created in Discord's dev portal"
+        }
+    },
+    "addons": [
+        "heroku-postgresql:hobby-dev"
+    ]
+}

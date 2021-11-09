@@ -29,25 +29,27 @@ If you share your WhatsApp conversation with multiple people, this setting allow
 1. Change the `false` to `true`
 
 ---
-### Restarting automatically (temporary solution)
+### Restarting automatically
 Run the start.bat, it will restart the bot if it crashes. If you do notice a restart please submit it on [Issues](https://github.com/FKLC/WhatsAppToDiscord/issues) tab, so I can further fix bugs of the bot.
 
 ---
 ### Setup
+To host it on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord/tree/main), and follow steps 3 to 7.
+
 
 1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases)
-1. Move the file you downloaded to a folder as the bot will create various files
-1. Go to [Discord applications](https://discordapp.com/developers/applications/)
-1. Click the **blue button** on the right upper corner with the text **"New Application"**
-1. Move to **"Bot"** section
-1. Click the **blue button** on the right with the text **"Add a bot"**
-1. Click the **blue button** on the right of icon of bot with the text **"Copy"**
-1. Run the bot
-1. Then paste it when it asks you to, and press enter
-1. A URL should appear. Open it in a browser. (It should look something like this: https://discordapp.com/oauth2/authorize?client_id=123456789&scope=bot&permissions=536879120)
-1. Accept the bot to your server (Recommendation: Create a new server for privacy)
-1. Activate multi-device feature on WhatsApp by following [their guide](https://faq.whatsapp.com/web/download-and-installation/how-to-join-or-leave-the-multi-device-beta)
-1. Scan the code QR code the bot sent to `#control-channel`
+2. Move the file you downloaded to a folder as the bot will create various files
+3. Go to [Discord applications](https://discordapp.com/developers/applications/)
+4. Click the **blue button** on the right upper corner with the text **"New Application"**
+5. Move to **"Bot"** section
+6. Click the **blue button** on the right with the text **"Add a bot"**
+7. Click the **blue button** on the right of icon of bot with the text **"Copy"**
+8. Run the bot
+9. Then paste it when it asks you to, and press enter
+10. A URL should appear. Open it in a browser. (It should look something like this: https://discordapp.com/oauth2/authorize?client_id=123456789&scope=bot&permissions=536879120)
+11. Accept the bot to your server (Recommendation: Create a new server for privacy)
+12. Activate multi-device feature on WhatsApp by following [their guide](https://faq.whatsapp.com/web/download-and-installation/how-to-join-or-leave-the-multi-device-beta)
+13. Scan the code QR code the bot sent to `#control-channel`
 
 ---
 ### This is just a bot
