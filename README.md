@@ -34,9 +34,6 @@ Run the start.bat, it will restart the bot if it crashes. If you do notice a res
 
 ---
 ### Setup
-To host it on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord), and follow steps 3 to 7.
-
-
 1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases)
 2. Move the file you downloaded to a folder as the bot will create various files
 3. Go to [Discord applications](https://discordapp.com/developers/applications/)
@@ -50,6 +47,8 @@ To host it on Heroku, click the deploy on Heroku button [![Deploy](https://www.h
 11. Accept the bot to your server (Recommendation: Create a new server for privacy)
 12. Activate multi-device feature on WhatsApp by following [their guide](https://faq.whatsapp.com/web/download-and-installation/how-to-join-or-leave-the-multi-device-beta)
 13. Scan the code QR code the bot sent to `#control-channel`
+---
+You can host this on Heroku, but you may get banned. WhatsApp can recognize Heroku's IP adresses and may **BAN** you. However, if you still want to host this on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord), and follow steps 3 to 7, and paste the token to BOT_TOKEN.
 
 ---
 ### This is just a bot
