@@ -34,7 +34,7 @@ Run the start.bat, it will restart the bot if it crashes. If you do notice a res
 
 ---
 ### Setup
-To host it on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord/tree/main), and follow steps 3 to 7.
+To host it on Heroku, click the deploy on Heroku button [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/FKLC/WhatsAppToDiscord), and follow steps 3 to 7.
 
 
 1. Download the latest version from [here](https://github.com/FKLC/WhatsAppToDiscord/releases)
