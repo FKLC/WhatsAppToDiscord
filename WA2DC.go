@@ -267,7 +267,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.3" {
+	if versionInfo.TagName != "v0.4.4" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
