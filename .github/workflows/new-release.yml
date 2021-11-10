@@ -1,0 +1,42 @@
+name: Compile and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  new-release:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Build with xgo
+        uses: crazy-max/ghaction-xgo@v1
+        with:
+          prefix: WA2DC
+          targets: "*/amd64,*/386,*/arm64"
+          ldflags: -s -w
+      -
+        name: Copy binaries
+        run: mkdir -p build/uncompressed; for file in $(find build/ -maxdepth 1 -type f); do cp "$file" "build/uncompressed/${file##*/}-uncompressed"; done
+      -
+        name: Run UPX
+        uses: crazy-max/ghaction-upx@v1
+        with:
+          files: |
+            build/*
+      -
+        name: Move uncompressed binaries back
+        run: mv build/uncompressed/* build/
+      -
+        name: Make a new release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          draft: true
+          prerelease: false
+          files: |
+            build/*
