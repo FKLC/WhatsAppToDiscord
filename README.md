@@ -20,6 +20,8 @@ But most importantly you can open **Discord overlay** and reply to your messages
 - `addToWhitelist <channel name>`: Adds specified conversation to the whitelist
 - `removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist 
 - `listWhitelist`: Lists all whitelisted conversations
+- `enablePrefix`: Starts adding your Discord username to messages
+- `disablePrefix`: Stops adding your Discord username to messages
 
 ---
 ### Restarting automatically
