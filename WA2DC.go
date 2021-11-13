@@ -267,7 +267,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.4" {
+	if versionInfo.TagName != "v0.4.5" {
 		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
 	}
 }
@@ -657,6 +657,9 @@ func jidToName(jid string) string {
 	name := contacts[pJid].FullName
 	if name == "" {
 		name = strings.Split(strings.Split(jid, "@")[0], "-")[0]
+		if contacts[pJid].PushName != "" {
+			name += " ~" + contacts[pJid].PushName
+		}
 	}
 	return name
 }
