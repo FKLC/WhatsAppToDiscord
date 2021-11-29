@@ -39,7 +39,7 @@ var (
 	dcSession    *dc.Session
 	chats        = make(map[string]*DCWebhook)
 	startTime    = time.Now()
-	commandsHelp = "\nCommands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enablePrefix`: Adds your Discord username to messages\n`disablePrefix`: Stops adding your Discord username to messages"
+	commandsHelp = "Commands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enablePrefix`: Adds your Discord username to messages\n`disablePrefix`: Stops adding your Discord username to messages"
 	guild        *dc.Guild
 	contacts     map[types.JID]types.ContactInfo
 	dbConnection *sql.DB
@@ -123,6 +123,7 @@ type Settings struct {
 	ControlChannelID string
 	Whitelist        []string
 	DiscordPrefix    bool
+	WAGroupPrefix    bool
 }
 
 func parseSettings() {
@@ -188,7 +189,7 @@ func firstRun() {
 
 	err = dcSession.Open()
 	handlePanic(err)
-	fmt.Println("You can invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=" + dcSession.State.User.ID + "&scope=bot&permissions=536879120")
+	fmt.Printf("You can invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=%v&scope=bot&permissions=536879120\n", dcSession.State.User.ID)
 	<-channelsCreated
 	save()
 	handlePanic(err)
@@ -253,8 +254,8 @@ func checkVersion() {
 
 	r, err := cl.Get("https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest")
 	if err != nil {
-		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
-		log.Println("Update check failed. Error: " + err.Error())
+		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Update check failed. Error: %v", err.Error()))
+		log.Printf("Update check failed. Error: %v\n", err.Error())
 		return
 	}
 	defer r.Body.Close()
@@ -262,13 +263,13 @@ func checkVersion() {
 	var versionInfo githubReleaseResp
 	err = json.NewDecoder(r.Body).Decode(&versionInfo)
 	if err != nil {
-		channelMessageSend(settings.ControlChannelID, "Update check failed. Error: "+err.Error())
-		log.Println("Update check failed. Error: " + err.Error())
+		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Update check failed. Error: %v", err.Error()))
+		log.Printf("Update check failed. Error: %v\n", err.Error())
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.5" {
-		channelMessageSend(settings.ControlChannelID, "New "+versionInfo.TagName+" version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```"+versionInfo.Body+"```")
+	if versionInfo.TagName != "v0.4.6" {
+		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("New %v version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```%v```", versionInfo.TagName, versionInfo.Body))
 	}
 }
 
@@ -390,14 +391,23 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 			dcCommandRemoveFromWhitelist(message.Content)
 		case "listwhitelist":
 			dcCommandListWhitelist()
-		case "enableprefix":
+		case "ping":
+			timestamp, _ := message.Timestamp.Parse()
+			channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Pong! %vms", time.Now().Sub(timestamp).Milliseconds()))
+		case "enabledcprefix":
 			settings.DiscordPrefix = true
-			channelMessageSend(settings.ControlChannelID, "Username prefix enabled!")
-		case "disableprefix":
+			channelMessageSend(settings.ControlChannelID, "Discord username prefix enabled!")
+		case "disabledcprefix":
 			settings.DiscordPrefix = false
-			channelMessageSend(settings.ControlChannelID, "Username prefix disabled!")
+			channelMessageSend(settings.ControlChannelID, "Discord username prefix disabled!")
+		case "enablewaprefix":
+			settings.WAGroupPrefix = true
+			channelMessageSend(settings.ControlChannelID, "WhatsApp name prefix enabled!")
+		case "disablewaprefix":
+			settings.WAGroupPrefix = false
+			channelMessageSend(settings.ControlChannelID, "WhatsApp name prefix disabled!")
 		default:
-			channelMessageSend(settings.ControlChannelID, "Unknown Command: "+parts[0]+commandsHelp)
+			channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Unknown Command: %v\n%v", parts[0], commandsHelp))
 		}
 		return
 	}
@@ -501,7 +511,7 @@ func dcCommandListWhitelist() {
 	for i, jid := range settings.Whitelist {
 		names[i] = jidToName(jid)
 	}
-	channelMessageSend(settings.ControlChannelID, "Whitelisted Conversations: ```"+strings.Join(names, "\n")+"```")
+	channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Whitelisted Conversations: ```%v```", strings.Join(names, "\n")))
 }
 
 func dcOnChannelDelete(_ *dc.Session, deletedChannel *dc.ChannelDelete) {
@@ -533,10 +543,10 @@ func getOrCreateChannel(jid string) *DCWebhook {
 			Name:     name,
 			Type:     dc.ChannelTypeGuildText,
 			ParentID: settings.CategoryID}); err != nil; {
-			log.Println("Error occurred while creating channel. Error: " + err.Error())
+			log.Printf("Error occurred while creating channel. Error: %v\n", err.Error())
 		}
 		for webhook, err = dcSession.WebhookCreate(channel.ID, "WA2DC", ""); err != nil; {
-			log.Println("Error occurred while creating channel. Error: " + err.Error())
+			log.Printf("Error occurred while creating channel. Error: %v\n", err.Error())
 		}
 		chats[jid] = &DCWebhook{*webhook, 0, ""}
 		chat = chats[jid]
@@ -620,7 +630,7 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 		} else {
 			username = message.Author.Username
 		}
-		message.Content = "[" + username + "] " + message.Content
+		message.Content = fmt.Sprintf("[%v] %v", username, message.Content)
 	}
 	pJid, _ := types.ParseJID(jid)
 	whatsappMessage := &proto.Message{Conversation: &message.Content}
@@ -644,7 +654,7 @@ func waSendMessage(jid string, message *dc.MessageCreate) {
 	}
 	_, err := waClient.SendMessage(pJid, message.ID, whatsappMessage)
 	if err != nil {
-		channelMessageSend(message.ChannelID, "Failed to send message! Error: "+err.Error())
+		channelMessageSend(message.ChannelID, fmt.Sprintf("Failed to send message! Error: %v", err.Error()))
 	}
 	chats[jid].LastMessageID = message.ID
 }
@@ -672,13 +682,15 @@ func messageHandler(evt interface{}) {
 			var username string
 			username = jidToName(m.Info.MessageSource.Sender.String())
 
-			var message_content string
+			var messageContent string
+			if settings.WAGroupPrefix && m.Info.IsGroup {
+				messageContent = "[" + username + "] "
+			}
+
 			if m.Message.GetExtendedTextMessage() != nil {
-				a, _ := json.Marshal(m.Message.GetExtendedTextMessage())
-				fmt.Println(string(a))
-				message_content = "> " + jidToName(*m.Message.GetExtendedTextMessage().ContextInfo.Participant) + ": " + strings.Join(strings.Split(*m.Message.GetExtendedTextMessage().ContextInfo.QuotedMessage.Conversation, "\n"), "\n> ") + "\n" + *m.Message.GetExtendedTextMessage().Text
+				messageContent += fmt.Sprintf("> %v: %v\n%v", jidToName(*m.Message.GetExtendedTextMessage().ContextInfo.Participant), strings.Join(strings.Split(*m.Message.GetExtendedTextMessage().ContextInfo.QuotedMessage.Conversation, "\n"), "\n> "), *m.Message.GetExtendedTextMessage().Text)
 			} else {
-				message_content = m.Message.GetConversation()
+				messageContent += m.Message.GetConversation()
 			}
 			chat := getOrCreateChannel(m.Info.MessageSource.Chat.String())
 			var (
@@ -689,13 +701,13 @@ func messageHandler(evt interface{}) {
 			if m.Message.GetImageMessage() != nil {
 				data, err = waClient.Download(m.Message.GetImageMessage())
 				if m.Message.GetImageMessage().Caption != nil {
-					message_content = *m.Message.GetImageMessage().Caption
+					messageContent += *m.Message.GetImageMessage().Caption
 				}
 				filename = "image." + strings.Split(*m.Message.GetImageMessage().Mimetype, "/")[1]
 			} else if m.Message.GetVideoMessage() != nil {
 				data, err = waClient.Download(m.Message.GetVideoMessage())
 				if m.Message.GetVideoMessage().Caption != nil {
-					message_content = *m.Message.GetVideoMessage().Caption
+					messageContent += *m.Message.GetVideoMessage().Caption
 				}
 				filename = "video." + strings.Split(*m.Message.GetVideoMessage().Mimetype, "/")[1]
 			} else if m.Message.GetAudioMessage() != nil {
@@ -714,7 +726,7 @@ func messageHandler(evt interface{}) {
 			}
 			if err != nil {
 				dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-					Content:  "Received a file, but can't send it here. Check Whatsapp on your phone. Error: " + err.Error(),
+					Content:  fmt.Sprintf("Received a file, but can't send it here. Check Whatsapp on your phone. Error: %v", err.Error()),
 					Username: username,
 				})
 			} else if len(data) > 8388284 {
@@ -728,7 +740,7 @@ func messageHandler(evt interface{}) {
 				uri := dc.EndpointWebhookToken(chat.ID, chat.Token)
 				_, err := dcSession.RequestWithLockedBucket("POST", uri+"?wait=true", "multipart/form-data; boundary=123", append(append([]byte("--123\nContent-Disposition: form-data; name=\"file\"; filename=\""+filename+"\"\n\n"), data...), []byte("\n--123--")...), dcSession.Ratelimiter.LockBucket(uri), 0)
 				if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
-					log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
+					log.Printf("Timed out while sending message. Error: %v\n", TimeoutErr.Error())
 					messageHandler(m)
 					return
 				} else {
@@ -746,14 +758,14 @@ func messageHandler(evt interface{}) {
 				}
 				profilePicURL, _ = profilePicsCache[m.Info.MessageSource.Sender.String()]
 			}
-			if message_content != "" {
+			if messageContent != "" {
 				_, err = dcSession.WebhookExecute(chat.ID, chat.Token, true, &dc.WebhookParams{
-					Content:   message_content,
+					Content:   messageContent,
 					Username:  username,
 					AvatarURL: profilePicURL,
 				})
 				if TimeoutErr, isTimeoutErr := err.(*url.Error); isTimeoutErr && TimeoutErr.Timeout() {
-					log.Println("Timed out while sending message. Error: " + TimeoutErr.Error())
+					log.Printf("Timed out while sending message. Error: %v\n", TimeoutErr.Error())
 					messageHandler(m)
 					return
 				} else {

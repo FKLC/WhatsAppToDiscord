@@ -20,8 +20,11 @@ But most importantly you can open **Discord overlay** and reply to your messages
 - `addToWhitelist <channel name>`: Adds specified conversation to the whitelist
 - `removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist 
 - `listWhitelist`: Lists all whitelisted conversations
-- `enablePrefix`: Starts adding your Discord username to messages
-- `disablePrefix`: Stops adding your Discord username to messages
+- `enableDCPrefix`: Starts adding your Discord username to messages sent to WhatsApp
+- `disableDCPrefix`: Stops adding your Discord username to messages sent to WhatsApp
+- `enableWAPrefix`: Starts adding sender's name to messages sent to Discord
+- `disableWAPrefix`: Stops adding sender's name to messages sent to Discord
+- `ping`: Sends "Pong! <Now - Time Message Sent>ms" back
 
 ---
 ### Restarting automatically
