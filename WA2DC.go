@@ -268,7 +268,7 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.6" {
+	if versionInfo.TagName != "v0.4.7" {
 		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("New %v version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```%v```", versionInfo.TagName, versionInfo.Body))
 	}
 }
@@ -583,9 +583,9 @@ func connectToWhatsApp() {
 		err = waClient.Connect()
 		handlePanic(err)
 		for evt := range qrChan {
-			if evt.IsQR() {
+			if evt.Event == "code" {
 				var png []byte
-				png, err = qrcode.Encode(string(evt), qrcode.Medium, 256)
+				png, err = qrcode.Encode(string(evt.Code), qrcode.Medium, 256)
 				handlePanic(err)
 				f := bytes.NewReader(png)
 
