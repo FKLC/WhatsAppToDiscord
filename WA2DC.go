@@ -39,7 +39,7 @@ var (
 	dcSession    *dc.Session
 	chats        = make(map[string]*DCWebhook)
 	startTime    = time.Now()
-	commandsHelp = "Commands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enablePrefix`: Adds your Discord username to messages\n`disablePrefix`: Stops adding your Discord username to messages"
+	commandsHelp = "Commands:\n`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enabledcrefix`: Adds your Discord username to messages\n`disabledcrefix`: Stops adding your Discord username to messages\n`enablewaprefix`: Unknown function\n`disablewaprefix`: Unknown function"
 	guild        *dc.Guild
 	contacts     map[types.JID]types.ContactInfo
 	dbConnection *sql.DB
