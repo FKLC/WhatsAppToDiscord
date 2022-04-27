@@ -39,7 +39,7 @@ var (
 	dcSession    *dc.Session
 	chats        = make(map[string]*DCWebhook)
 	startTime    = time.Now()
-	commandsHelp = "`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enableDCPrefix`: Starts adding your Discord username to messages sent to WhatsApp\n`disableDCPrefix`: Stops adding your Discord username to messages sent to WhatsApp\n`enableWAPrefix`: Starts adding sender\'s name to messages sent to Discord\n`disableWAPrefix`: Stops adding sender\'s name to messages sent to Discord\n`ping`: Sends \"Pong! <Now - Time Message Sent>ms\" back"
+	commandsHelp = "`start <number with country code or name>`: Starts a new conversation\n`list`: Lists existing chats\n`list <chat name to search>`: Finds chats that contain the given argument\n`addToWhitelist <channel name>`: Adds specified conversation to the whitelist\n`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist\n`listWhitelist`: Lists all whitelisted conversations\n`enableDCPrefix`: Starts adding your Discord username to messages sent to WhatsApp\n`disableDCPrefix`: Stops adding your Discord username to messages sent to WhatsApp\n`enableWAPrefix`: Starts adding sender's name to messages sent to Discord\n`disableWAPrefix`: Stops adding sender's name to messages sent to Discord\n`ping`: Sends \"Pong! <Now - Time Message Sent>ms\" back"
 	guild        *dc.Guild
 	contacts     map[types.JID]types.ContactInfo
 	dbConnection *sql.DB
@@ -268,8 +268,9 @@ func checkVersion() {
 		return
 	}
 
-	if versionInfo.TagName != "v0.4.7" {
-		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("New %v version is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```%v```", versionInfo.TagName, versionInfo.Body))
+	currVer := "v0.4.8"
+	if versionInfo.TagName != currVer {
+		channelMessageSend(settings.ControlChannelID, fmt.Sprintf("New %v version (current version is %v) is available. Download the latest release from here https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe. \nChangelog: ```%v```", versionInfo.TagName, currVer, versionInfo.Body))
 	}
 }
 
@@ -392,8 +393,7 @@ func dcOnMessageCreate(_ *dc.Session, message *dc.MessageCreate) {
 		case "listwhitelist":
 			dcCommandListWhitelist()
 		case "ping":
-			timestamp, _ := message.Timestamp.Parse()
-			channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Pong! %vms", time.Now().Sub(timestamp).Milliseconds()))
+			channelMessageSend(settings.ControlChannelID, fmt.Sprintf("Pong! %vms", time.Now().Sub(message.Timestamp).Milliseconds()))
 		case "enabledcprefix":
 			settings.DiscordPrefix = true
 			channelMessageSend(settings.ControlChannelID, "Discord username prefix enabled!")
