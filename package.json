@@ -16,7 +16,7 @@
   "scripts": {
     "start": "node ."
   },
-  "bin": "index.js",
+  "bin": "src/index.js",
   "author": "Fatih Kilic",
   "license": "MIT",
   "devDependencies": {

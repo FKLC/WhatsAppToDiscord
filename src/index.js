@@ -27,7 +27,7 @@ const pino = require('pino');
 	state.dcClient = await discordManager.start();
 	state.logger.info('Discord client started.');
 
-	await utils.checkVersion('v0.5.0');
+	await utils.checkVersion('v0.5.1');
 	state.logger.info('Update checked.');
 
 	await discordUtils.repairChannels();

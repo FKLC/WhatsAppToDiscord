@@ -51,7 +51,12 @@ client.on('whatsappMessage', async (message) => {
 		content += message;
 		break;
 	case 'extendedText':
-		content += `> ${quotedName}: ${message.contextInfo.quotedMessage.conversation.split('\n').join('\n> ')}\n${message.text}`;
+		if (message.contextInfo.isForwarded) {
+			content += `> Forwarded Message:\n${message.text}`;
+		}
+		else {
+			content += `> ${quotedName}: ${message.contextInfo.quotedMessage.conversation.split('\n').join('\n> ')}\n${message.text}`;
+		}
 		break;
 	case 'image':
 	case 'video':
@@ -73,12 +78,14 @@ client.on('whatsappMessage', async (message) => {
 		content += message.caption || '';
 		break;
 	}
-	await webhook.send({
-		content: content || null,
-		username: name,
-		files: files,
-		avatarURL: await getProfilePic(senderJid),
-	});
+	if (content || files.length) {
+		await webhook.send({
+			content: content || null,
+			username: name,
+			files: files,
+			avatarURL: await getProfilePic(senderJid),
+		});
+	}
 });
 
 const commands = {

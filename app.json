@@ -1,6 +1,6 @@
 {
     "name": "WhatsAppToDiscord",
-    "description": "WhatsAppToDiscord is a Discord bot that uses WhatsApp Web for messaging in Discord built on top of whatsmeow and discordgo.",
+    "description": "WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Discord and WhatsApp..",
     "repository": "https://github.com/FKLC/WhatsAppToDiscord",
     "env": {
         "BOT_TOKEN": {

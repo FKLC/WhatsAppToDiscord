@@ -12,7 +12,7 @@ jobs:
         os:
           - linux
           - macos
-          - win
+          # - win won't work because of sqlite3
     steps:
       - name: Checkout
         uses: actions/checkout@v2
