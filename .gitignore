@@ -1,0 +1,6 @@
+node_modules/
+logs.txt
+storage.db
+.idea
+*.exe
+build/
