@@ -14,7 +14,8 @@
   "description": "WhatsAppToDiscord is a bot that bridges WhatsApp and Discord",
   "main": "src/index.js",
   "scripts": {
-    "start": "node ."
+    "start": "node .",
+    "compile": "pkg ."
   },
   "bin": "src/index.js",
   "author": "Fatih Kilic",
@@ -24,12 +25,6 @@
     "pkg": "^5.6.0"
   },
   "pkg": {
-    "assets": "node_modules/sqlite3/lib/binding/**",
-    "targets": [
-      "latest-win-x64",
-      "latest-macos-x64",
-      "latest-linux-x64"
-    ],
-    "outputPath": "build"
+    "assets": "node_modules/sqlite3/lib/binding/**"
   }
 }
