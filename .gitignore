@@ -4,3 +4,4 @@ storage.db
 .idea
 *.exe
 build/
+*.bat

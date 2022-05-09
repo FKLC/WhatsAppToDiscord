@@ -12,6 +12,9 @@ const pino = require('pino');
 
 	state.logger.info('Starting');
 
+	await utils.checkVersion('v0.5.2');
+	state.logger.info('Update checked.');
+
 	await storage.initializeDB();
 	state.logger.info('Initialized database.');
 
@@ -26,9 +29,6 @@ const pino = require('pino');
 
 	state.dcClient = await discordManager.start();
 	state.logger.info('Discord client started.');
-
-	await utils.checkVersion('v0.5.1');
-	state.logger.info('Update checked.');
 
 	await discordUtils.repairChannels();
 	state.logger.info('Repaired channels.');

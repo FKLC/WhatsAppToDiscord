@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 
 const storage = require('./storage_manager');
 const { setupDiscordChannels } = require('./discord_utils');
+const updater = require('./updater');
 const state = require('./state');
 
 
@@ -68,7 +69,12 @@ module.exports = {
 	checkVersion: async (currVer) => {
 		const latestInfo = await (await fetch('https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest')).json();
 		if (latestInfo['tag_name'] !== currVer) {
-			await state.getControlChannel().send(`A new version is available (${currVer} -> ${latestInfo['tag_name']}). Download it from https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/WA2DC.exe.\nChangelog:\`\`\`${latestInfo['body']}\`\`\``);
+			console.log(`A new version is available (${currVer} -> ${latestInfo['tag_name']}). Trying to auto-update. Please wait as the bot downloads the new version.`);
+			const exeName = await updater.update();
+			if (exeName) {
+				await input(`Updated WA2DC. Hit enter to exit and run ${exeName}.`);
+				process.exit();
+			}
 		}
 	},
 };

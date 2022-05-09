@@ -37,7 +37,10 @@ jobs:
           fi
         shell: bash
 
-      - name: Upload binary as artifact
+      - name: Create Signatures
+        run: node signer.js
+
+      - name: Upload binary and signature as artifact
         uses: actions/upload-artifact@v3
         with:
           name: WA2DC-${{ matrix.os }}
@@ -48,7 +51,7 @@ jobs:
     needs: build
     permissions: write-all
     steps:
-      - name: Download complied binaries
+      - name: Download complied binaries and signatures
         uses: actions/download-artifact@v3
         with:
           path: builds
