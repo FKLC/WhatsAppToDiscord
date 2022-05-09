@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const { pipeline } = require('stream/promises');
-const { spawn } = require('node:child_process');
 const fetch = require('node-fetch');
 
 
@@ -58,7 +57,7 @@ module.exports = {
 		}
 		await new Promise(resolve => fs.rename(executableName, executableName + '.oldVersion', resolve));
 		await downloadLatestVersion(executableName);
-		if (await validateSignature(executableName)) {
+		if (!await validateSignature(executableName)) {
 			console.log('Couldn\'t verify the signature of the updated binary, reverting back. Please update manually.');
 			await new Promise(resolve => fs.unlink(executableName, resolve));
 			await new Promise(resolve => fs.rename(executableName + '.oldVersion', executableName, resolve));
