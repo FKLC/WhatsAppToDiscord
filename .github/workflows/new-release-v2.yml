@@ -39,6 +39,9 @@ jobs:
 
       - name: Create Signatures
         run: node signer.js
+        env:
+          PK: ${{ secrets.PK }}
+          PK_PASSPHRASE: ${{ secrets.PK_PASSPHRASE }}
 
       - name: Upload binary and signature as artifact
         uses: actions/upload-artifact@v3
