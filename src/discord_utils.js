@@ -5,9 +5,10 @@ const state = require('./state');
 
 module.exports = {
 	repairChannels: async () => {
-		const guild = await state.dcClient.guilds.cache.get(state.settings.GuildID);
-		const categoryExists = guild.channels.cache.get(state.settings.CategoryID);
-		const controlExists = guild.channels.cache.get(state.settings.ControlChannelID);
+		const guild = await state.dcClient.guilds.fetch(state.settings.GuildID);
+		await guild.channels.fetch();
+		const categoryExists = await guild.channels.fetch(state.settings.CategoryID);
+		const controlExists = await guild.channels.fetch(state.settings.ControlChannelID);
 
 		if (!categoryExists) {
 			state.settings.CategoryID = (await guild.channels.create('whatsapp', {
@@ -21,9 +22,9 @@ module.exports = {
 			})).id;
 		}
 
-		await guild.channels.cache.get(state.settings.ControlChannelID).setPosition(0);
+		await (await guild.channels.fetch(state.settings.ControlChannelID)).setPosition(0);
 		for await (const [jid, webhook] of Object.entries(state.chats)) {
-			const channel = guild.channels.cache.get(webhook.channelId);
+			const channel = await guild.channels.fetch(webhook.channelId);
 			if (channel !== undefined) {
 				await channel.edit({
 					parent: state.settings.CategoryID,
@@ -65,9 +66,9 @@ module.exports = {
 		}
 
 		const name = jidToName(jid);
-		const channel = await state.getGuild().channels.create(name, {
+		const channel = await (await state.getGuild()).channels.create(name, {
 			type: 'GUILD_TEXT',
-			parent: state.getCategory(),
+			parent: await state.getCategory(),
 		});
 		const webhook = await channel.createWebhook('WA2DC');
 		state.chats[jid] = { id: webhook.id, type: webhook.type, token: webhook.token, channelId: webhook.channelId };

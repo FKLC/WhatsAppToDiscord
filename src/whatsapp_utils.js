@@ -80,7 +80,7 @@ module.exports = {
 		};
 	},
 	sendQR: async (qrString) => {
-		await state.getControlChannel().send({ files: [new MessageAttachment(await QRCode.toBuffer(qrString), 'qrcode.png')] });
+		await (await state.getControlChannel()).send({ files: [new MessageAttachment(await QRCode.toBuffer(qrString), 'qrcode.png')] });
 	},
 	jidToName: (jid, pushName) => {
 		if (isMe(state.waClient.user.id, jid)) { return 'You'; }
@@ -114,8 +114,8 @@ module.exports = {
 		}
 		return documentContent;
 	},
-	createQuoteMessage: (msg) => {
-		const refMessage = msg.channel.messages.cache.get(msg.reference.messageId);
+	createQuoteMessage: async (msg) => {
+		const refMessage = await msg.channel.messages.fetch(msg.reference.messageId);
 		return {
 			key: { remoteJid: (refMessage.webhookId && refMessage.author.username !== 'You') ? exports.nameToJid(refMessage.author.username) : state.waClient.user.id },
 			message: { conversation: refMessage.content },

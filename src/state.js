@@ -1,6 +1,6 @@
-const getGuild = () => module.exports.dcClient.guilds.cache.get(module.exports.settings.GuildID);
-const getCategory = () => module.exports.dcClient.channels.cache.get(module.exports.settings.CategoryID);
-const getControlChannel = () => module.exports.dcClient.channels.cache.get(module.exports.settings.ControlChannelID);
+const getGuild = async () => await module.exports.dcClient.guilds.fetch(module.exports.settings.GuildID);
+const getCategory = async () => await module.exports.dcClient.channels.fetch(module.exports.settings.CategoryID);
+const getControlChannel = async () => await module.exports.dcClient.channels.fetch(module.exports.settings.ControlChannelID);
 
 module.exports = {
 	settings: {},

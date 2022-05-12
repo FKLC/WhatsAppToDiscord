@@ -11,7 +11,7 @@ const state = require('./state');
 let authState, saveState;
 
 const connectToWhatsApp = async () => {
-	const controlChannel = state.getControlChannel();
+	const controlChannel = await state.getControlChannel();
 	const { version } = await fetchLatestBaileysVersion();
 
 	const client = makeWASocket({
@@ -83,7 +83,7 @@ const connectToWhatsApp = async () => {
 		}
 
 		if (message.reference) {
-			options.quoted = waUtils.createQuoteMessage(message);
+			options.quoted = await waUtils.createQuoteMessage(message);
 		}
 
 		await client.sendMessage(jid, content, options);

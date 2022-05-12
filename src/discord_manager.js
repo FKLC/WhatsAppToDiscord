@@ -8,12 +8,12 @@ const state = require('./state');
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 let controlChannel;
 
-const updateControlChannel = () => {
-	controlChannel = client.channels.cache.get(state.settings.ControlChannelID);
+const updateControlChannel = async () => {
+	controlChannel = await client.channels.fetch(state.settings.ControlChannelID);
 };
 
-client.on('ready', () => {
-	updateControlChannel();
+client.on('ready', async () => {
+	await updateControlChannel();
 });
 
 client.on('messageCreate', async (message) => {
