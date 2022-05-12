@@ -2,15 +2,18 @@ const { Client, Intents } = require('discord.js');
 const { downloadContentFromMessage } = require('@adiwajshing/baileys');
 const { getOrCreateChannel, channelIdToJid, getFileName } = require('./discord_utils');
 const whatsappUtils = require('./whatsapp_utils');
-const { jidToName, getWebhookAndSenderJid, getProfilePic } = require('./whatsapp_utils');
 const state = require('./state');
 
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 let controlChannel;
 
-client.on('ready', () => {
+const updateControlChannel = () => {
 	controlChannel = client.channels.cache.get(state.settings.ControlChannelID);
+};
+
+client.on('ready', () => {
+	updateControlChannel();
 });
 
 client.on('messageCreate', async (message) => {
@@ -31,11 +34,11 @@ client.on('channelDelete', async (channel) => {
 	delete state.chats[channelIdToJid(channel.id)];
 });
 
-client.on('whatsappMessage', async (message) => {
-	const { channelJid, senderJid } = getWebhookAndSenderJid(message, message.key.fromMe);
+client.on('whatsappMessage', async (message, resolve) => {
+	const { channelJid, senderJid } = whatsappUtils.getWebhookAndSenderJid(message, message.key.fromMe);
 	const webhook = await getOrCreateChannel(channelJid);
-	const name = jidToName(senderJid, message.pushName);
-	const quotedName = jidToName(message.message.extendedTextMessage?.contextInfo?.participant || '');
+	const name = whatsappUtils.jidToName(senderJid, message.pushName);
+	const quotedName = whatsappUtils.jidToName(message.message.extendedTextMessage?.contextInfo?.participant || '');
 	const files = [];
 	let content = '';
 
@@ -67,7 +70,7 @@ client.on('whatsappMessage', async (message) => {
 			await webhook.send({
 				content: 'WA2DC Attention: Received a file, but it\'s over 8MB. Check WhatsApp on your phone.',
 				username: name,
-				avatarURL: await getProfilePic(senderJid),
+				avatarURL: await whatsappUtils.getProfilePic(senderJid),
 			});
 			break;
 		}
@@ -83,9 +86,10 @@ client.on('whatsappMessage', async (message) => {
 			content: content || null,
 			username: name,
 			files: files,
-			avatarURL: await getProfilePic(senderJid),
+			avatarURL: await whatsappUtils.getProfilePic(senderJid),
 		});
 	}
+	resolve();
 });
 
 const commands = {
@@ -149,7 +153,7 @@ const commands = {
 		await controlChannel.send('Removed from the whitelist!');
 	},
 	listwhitelist: async () => {
-		await controlChannel.send(state.settings.Whitelist.length ? '```' + state.settings.Whitelist.map(jid => jidToName(jid)).join('\n') + '```' : 'Whitelist is empty/inactive.');
+		await controlChannel.send(state.settings.Whitelist.length ? '```' + state.settings.Whitelist.map(jid => whatsappUtils.jidToName(jid)).join('\n') + '```' : 'Whitelist is empty/inactive.');
 	},
 	enabledcprefix: async () => {
 		state.settings.DiscordPrefix = true;
@@ -211,4 +215,5 @@ module.exports = {
 		await client.login(state.settings.Token);
 		return client;
 	},
+	updateControlChannel,
 };

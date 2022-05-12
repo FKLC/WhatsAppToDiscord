@@ -6,8 +6,8 @@ const state = require('./state');
 module.exports = {
 	repairChannels: async () => {
 		const guild = await state.dcClient.guilds.cache.get(state.settings.GuildID);
-		const categoryExists = guild.channels.cache.some(channel => channel.id === state.settings.CategoryID);
-		const controlExists = guild.channels.cache.some(channel => channel.id === state.settings.ControlChannelID);
+		const categoryExists = guild.channels.cache.get(state.settings.CategoryID);
+		const controlExists = guild.channels.cache.get(state.settings.ControlChannelID);
 
 		if (!categoryExists) {
 			state.settings.CategoryID = (await guild.channels.create('whatsapp', {

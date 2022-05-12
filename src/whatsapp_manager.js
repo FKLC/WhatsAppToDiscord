@@ -4,8 +4,7 @@ const {
 	DisconnectReason,
 } = require('@adiwajshing/baileys');
 const waUtils = require('./whatsapp_utils');
-const { channelIdToJid } = require('./discord_utils');
-const { updateContacts, createDocumentContent, createQuoteMessage } = require('./whatsapp_utils');
+const dcUtils = require('./discord_utils');
 const state = require('./state');
 
 
@@ -37,11 +36,11 @@ const connectToWhatsApp = async () => {
 	});
 	client.ev.on('creds.update', saveState);
 	['chats.set', 'contacts.set', 'chats.upsert', 'chats.update', 'contacts.upsert', 'contacts.update', 'groups.upsert',
-		'groups.update'].forEach((eventName) => client.ev.addListener(eventName, updateContacts));
+		'groups.update'].forEach((eventName) => client.ev.addListener(eventName, waUtils.updateContacts));
 
-	client.ev.on('messages.upsert', update => {
+	client.ev.on('messages.upsert', async update => {
 		if (update.type === 'notify') {
-			for (const message of update.messages) {
+			for await (const message of update.messages) {
 				if (!message.key.fromMe && (state.settings.Whitelist.length && !(state.settings.Whitelist.includes(message.key.remoteJid)))) {
 					return;
 				}
@@ -51,13 +50,13 @@ const connectToWhatsApp = async () => {
 				if (!['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].some(el => Object.keys(message.message).includes(el))) {
 					return;
 				}
-				state.dcClient.emit('whatsappMessage', message);
+				await new Promise(resolve => state.dcClient.emit('whatsappMessage', message, resolve));
 			}
 		}
 	});
 
 	client.ev.addListener('discordMessage', async message => {
-		const jid = channelIdToJid(message.channel.id);
+		const jid = dcUtils.channelIdToJid(message.channel.id);
 		if (!jid) {
 			message.channel.send('Couldn\'t find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.');
 			return;
@@ -68,7 +67,7 @@ const connectToWhatsApp = async () => {
 
 		if (state.settings.UploadAttachments) {
 			for (const [, attachment] of message.attachments) {
-				await client.sendMessage(jid, createDocumentContent(attachment));
+				await client.sendMessage(jid, waUtils.createDocumentContent(attachment));
 			}
 			if (!message.content) {
 				return;
@@ -84,7 +83,7 @@ const connectToWhatsApp = async () => {
 		}
 
 		if (message.reference) {
-			options.quoted = createQuoteMessage(message);
+			options.quoted = waUtils.createQuoteMessage(message);
 		}
 
 		await client.sendMessage(jid, content, options);
