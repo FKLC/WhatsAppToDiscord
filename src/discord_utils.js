@@ -24,8 +24,8 @@ module.exports = {
 
 		await (await guild.channels.fetch(state.settings.ControlChannelID)).setPosition(0);
 		for await (const [jid, webhook] of Object.entries(state.chats)) {
-			const channel = await guild.channels.fetch(webhook.channelId);
-			if (channel !== undefined) {
+			const channel = await guild.channels.fetch(webhook.channelId).catch(() => { });
+			if (channel != null) {
 				await channel.edit({
 					parent: state.settings.CategoryID,
 					position: 999,

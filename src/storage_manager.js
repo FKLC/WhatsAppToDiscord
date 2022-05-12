@@ -28,7 +28,7 @@ module.exports = {
 	},
 	get: async (name) => {
 		const result = await Storage.findOne({ where: { name } });
-		if (result === null) {
+		if (result == null) {
 			return null;
 		}
 		return result.get('data');

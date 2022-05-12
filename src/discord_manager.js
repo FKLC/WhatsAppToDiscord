@@ -17,7 +17,7 @@ client.on('ready', async () => {
 });
 
 client.on('messageCreate', async (message) => {
-	if (message.author === client.user || message.webhookId !== null || message.channel?.parent?.id !== state.settings.CategoryID) {
+	if (message.author === client.user || message.webhookId != null || message.channel?.parent?.id !== state.settings.CategoryID) {
 		return;
 	}
 

@@ -40,7 +40,7 @@ const dbChatsName = 'chats';
 module.exports = {
 	parseSettings: async () => {
 		const result = await storage.get(dbSettingsName);
-		if (result === null) {
+		if (result == null) {
 			return await firstRun();
 		}
 		else {

@@ -128,7 +128,7 @@ module.exports = {
 		return { channelJid: formatJid(msg.key.remoteJid), senderJid: formatJid(msg.key.participant || msg.key.remoteJid) };
 	},
 	getProfilePic: async (jid) => {
-		if (state.profilePicsCache[jid] === undefined) {
+		if (state.profilePicsCache[jid] == null) {
 			try {
 				state.profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview');
 			}
