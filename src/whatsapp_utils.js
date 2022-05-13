@@ -31,7 +31,7 @@ const formatJid = (jid) => {
 };
 
 module.exports = {
-	useStorageAuthState: async () => {
+	useStorageAuthState: async (newSession) => {
 		let creds;
 		let keys = {};
 
@@ -40,7 +40,7 @@ module.exports = {
 		};
 
 		const authData = await storage.get(dbAuthName);
-		if (authData) {
+		if (authData && !newSession) {
 			({ creds, keys } = JSON.parse(authData, generics_1.BufferJSON.reviver));
 		}
 		else {

@@ -12,7 +12,7 @@ const pino = require('pino');
 
 	state.logger.info('Starting');
 
-	await utils.checkVersion('v0.6.0');
+	await utils.checkVersion('v0.6.1');
 	state.logger.info('Update checked.');
 
 	await storage.initializeDB();
@@ -34,7 +34,7 @@ const pino = require('pino');
 	await discordManager.updateControlChannel();
 	state.logger.info('Repaired channels.');
 
-	state.waClient = await whatsappManager.start();
+	await whatsappManager.start();
 	state.logger.info('WhatsApp client started.');
 
 	console.log('Bot is now running. Press CTRL-C to exit.');

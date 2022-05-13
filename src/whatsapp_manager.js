@@ -1,16 +1,16 @@
 const {
 	default: makeWASocket,
 	fetchLatestBaileysVersion,
-	DisconnectReason,
 } = require('@adiwajshing/baileys');
 const waUtils = require('./whatsapp_utils');
 const dcUtils = require('./discord_utils');
 const state = require('./state');
+const { start } = require('./discord_manager');
 
 
 let authState, saveState;
 
-const connectToWhatsApp = async () => {
+const connectToWhatsApp = async (retry = 0) => {
 	const controlChannel = await state.getControlChannel();
 	const { version } = await fetchLatestBaileysVersion();
 
@@ -27,10 +27,18 @@ const connectToWhatsApp = async () => {
 		if (qr) {
 			await waUtils.sendQR(qr);
 		}
-		if (connection === 'close' && lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
-			await connectToWhatsApp();
+		if (connection === 'close') {
+			await controlChannel.send('WhatsApp connection closed! Trying to reconnect! Error: ' + JSON.stringify(lastDisconnect.error));
+			if (retry !== 3) {
+				await connectToWhatsApp(retry + 1);
+			}
+			else {
+				await controlChannel.send('Tried reconnecting 3 times. Please rescan the QR code.');
+				await module.exports.start(true);
+			}
 		}
-		if (connection === 'open') {
+		else if (connection === 'open') {
+			state.waClient = client;
 			await controlChannel.send('WhatsApp connection successfully opened!');
 		}
 	});
@@ -88,13 +96,11 @@ const connectToWhatsApp = async () => {
 
 		await client.sendMessage(jid, content, options);
 	});
-
-	return client;
 };
 
 module.exports = {
-	start: async () => {
-		({ authState, saveState } = await waUtils.useStorageAuthState());
-		return await connectToWhatsApp();
+	start: async (newSession = false) => {
+		({ authState, saveState } = await waUtils.useStorageAuthState(newSession));
+		await connectToWhatsApp();
 	},
 };
