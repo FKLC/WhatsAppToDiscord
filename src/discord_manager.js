@@ -9,7 +9,7 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_
 let controlChannel;
 
 const updateControlChannel = async () => {
-	controlChannel = await client.channels.fetch(state.settings.ControlChannelID);
+	controlChannel = await client.channels.fetch(state.settings.ControlChannelID).catch(() => null);
 };
 
 client.on('ready', async () => {

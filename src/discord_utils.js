@@ -7,8 +7,8 @@ module.exports = {
 	repairChannels: async () => {
 		const guild = await state.dcClient.guilds.fetch(state.settings.GuildID);
 		await guild.channels.fetch();
-		const categoryExists = await guild.channels.fetch(state.settings.CategoryID);
-		const controlExists = await guild.channels.fetch(state.settings.ControlChannelID);
+		const categoryExists = await guild.channels.fetch(state.settings.CategoryID).catch(() => null);
+		const controlExists = await guild.channels.fetch(state.settings.ControlChannelID).catch(() => null);
 
 		if (!categoryExists) {
 			state.settings.CategoryID = (await guild.channels.create('whatsapp', {
@@ -24,7 +24,7 @@ module.exports = {
 
 		await (await guild.channels.fetch(state.settings.ControlChannelID)).setPosition(0);
 		for await (const [jid, webhook] of Object.entries(state.chats)) {
-			const channel = await guild.channels.fetch(webhook.channelId).catch(() => { });
+			const channel = await guild.channels.fetch(webhook.channelId).catch(() => null);
 			if (channel != null) {
 				await channel.edit({
 					parent: state.settings.CategoryID,
