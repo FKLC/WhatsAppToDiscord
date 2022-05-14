@@ -12,7 +12,7 @@ const pino = require('pino');
 
 	state.logger.info('Starting');
 
-	await utils.checkVersion('v0.6.3');
+	await utils.checkVersion('v0.6.4');
 	state.logger.info('Update checked.');
 
 	await storage.initializeDB();

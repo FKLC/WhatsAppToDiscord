@@ -42,6 +42,7 @@ jobs:
         with:
           privateKey: ${{ secrets.PK }}
           passphrase: ${{ secrets.PK_PASSPHRASE }}
+          outputFolder: build/
           files: |
             build/**
 
