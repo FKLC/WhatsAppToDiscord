@@ -28,17 +28,21 @@ const getExecutableName = () => {
 	}
 };
 
-const downloadLatestVersion = async (executableName) => {
+const getCurrentExecutableName = () => {
+	return process.argv0.split(/[\/\\]/).pop();
+};
+
+const downloadLatestVersion = async (executableName, targetName) => {
 	await pipeline(
 		(await fetch('https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/' + executableName)).body,
-		fs.createWriteStream(executableName),
+		fs.createWriteStream(targetName),
 	);
 };
 
-const validateSignature = async (executableName) => {
+const validateSignature = async (currExecutableName, executableName) => {
 	return crypto.verify(
 		'RSA-SHA256',
-		fs.readFileSync(executableName),
+		fs.readFileSync(currExecutableName),
 		publicKey,
 		Buffer.from(await (await fetch(`https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${executableName}.sig`)).arrayBuffer()),
 	);
@@ -50,20 +54,24 @@ module.exports = {
 			console.log('Running script with node. Skipping auto-update.');
 			return false;
 		}
+		const currExecutableName = getCurrentExecutableName();
 		const executableName = getExecutableName();
 		if (!executableName) {
 			console.log('Auto-update is not supported on this platform: ' + os.platform());
 			return false;
 		}
-		await new Promise(resolve => fs.rename(executableName, executableName + '.oldVersion', resolve));
-		await downloadLatestVersion(executableName);
-		if (!await validateSignature(executableName)) {
+		await fs.promises.rename(currExecutableName, currExecutableName + '.oldVersion');
+		await downloadLatestVersion(executableName, currExecutableName);
+		if (!await validateSignature(currExecutableName, executableName)) {
 			console.log('Couldn\'t verify the signature of the updated binary, reverting back. Please update manually.');
-			await new Promise(resolve => fs.unlink(executableName, resolve));
-			await new Promise(resolve => fs.rename(executableName + '.oldVersion', executableName, resolve));
+			await fs.promises.unlink(currExecutableName);
+			await fs.promises.rename(currExecutableName + '.oldVersion', currExecutableName);
 			return false;
 		}
-		await new Promise(resolve => fs.unlink(executableName + '.oldVersion', resolve));
-		return executableName;
+		await fs.promises.unlink(currExecutableName + '.oldVersion').catch(() => null);
+		return currExecutableName;
+	},
+	cleanOldVersion: async () => {
+		await fs.promises.unlink(getCurrentExecutableName() + '.oldVersion').catch(() => null);
 	},
 };

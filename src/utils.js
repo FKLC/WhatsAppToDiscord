@@ -67,6 +67,7 @@ module.exports = {
 		await state.dcClient.destroy();
 	},
 	checkVersion: async (currVer) => {
+		await updater.cleanOldVersion();
 		const latestInfo = await (await fetch('https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest')).json();
 		if (latestInfo['tag_name'] !== currVer) {
 			console.log(`A new version is available (${currVer} -> ${latestInfo['tag_name']}). Trying to auto-update. Please wait as the bot downloads the new version.`);

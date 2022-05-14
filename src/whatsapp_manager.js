@@ -28,12 +28,13 @@ const connectToWhatsApp = async (retry = 0) => {
 			await waUtils.sendQR(qr);
 		}
 		if (connection === 'close') {
-			await controlChannel.send('WhatsApp connection closed! Trying to reconnect! Error: ' + JSON.stringify(lastDisconnect.error));
+			await controlChannel.send('WhatsApp connection closed! Trying to reconnect!');
+			state.logger.error(lastDisconnect.error);
 			if (retry !== 3) {
 				await connectToWhatsApp(retry + 1);
 			}
 			else {
-				await controlChannel.send('Tried reconnecting 3 times. Please rescan the QR code.');
+				await controlChannel.send('Failed reconnecting 3 times. Please rescan the QR code.');
 				await module.exports.start(true);
 			}
 		}
