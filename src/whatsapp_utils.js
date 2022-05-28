@@ -117,7 +117,7 @@ module.exports = {
 	createQuoteMessage: async (msg) => {
 		const refMessage = await msg.channel.messages.fetch(msg.reference.messageId);
 		return {
-			key: { remoteJid: (refMessage.webhookId && refMessage.author.username !== 'You') ? exports.nameToJid(refMessage.author.username) : state.waClient.user.id },
+			key: { remoteJid: (refMessage.webhookId && refMessage.author.username !== 'You') ? module.exports.nameToJid(refMessage.author.username) : state.waClient.user.id },
 			message: { conversation: refMessage.content },
 		};
 	},

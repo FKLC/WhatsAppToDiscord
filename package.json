@@ -1,28 +1,27 @@
 {
   "dependencies": {
-    "@adiwajshing/baileys": "^4.1.0",
+    "@adiwajshing/baileys": "github:adiwajshing/baileys",
     "@adiwajshing/keyed-db": "^0.2.4",
-    "discord.js": "^13.6.0",
-    "node-fetch": "2",
+    "discord.js": "^13.7.0",
+    "node-fetch": "^2.6.7",
     "pino": "^7.11.0",
     "qrcode": "^1.5.0",
-    "sequelize": "^6.19.0",
-    "sqlite3": "^5.0.6"
+    "sequelize": "^6.20.1",
+    "sqlite3": "^5.0.8"
   },
   "name": "wa2dc",
   "version": "1.0.0",
   "description": "WhatsAppToDiscord is a bot that bridges WhatsApp and Discord",
   "main": "src/index.js",
   "scripts": {
-    "start": "node .",
-    "compile": "pkg ."
+    "start": "node ."
   },
   "bin": "src/index.js",
   "author": "Fatih Kilic",
   "license": "MIT",
   "devDependencies": {
-    "eslint": "^8.14.0",
-    "pkg": "^5.6.0"
+    "eslint": "^8.16.0",
+    "pkg": "^5.7.0"
   },
   "pkg": {
     "assets": "node_modules/sqlite3/lib/binding/**"
