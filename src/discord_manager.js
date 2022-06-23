@@ -57,7 +57,7 @@ client.on('whatsappMessage', async (message, resolve) => {
 		if (message.contextInfo.isForwarded) {
 			content += `> Forwarded Message:\n${message.text}`;
 		}
-		else {
+		else if (message.contextInfo.quotedMessage) {
 			content += `> ${quotedName}: ${message.contextInfo.quotedMessage.conversation.split('\n').join('\n> ')}\n${message.text}`;
 		}
 		break;

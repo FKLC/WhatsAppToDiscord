@@ -5,7 +5,6 @@ const {
 const waUtils = require('./whatsapp_utils');
 const dcUtils = require('./discord_utils');
 const state = require('./state');
-const { start } = require('./discord_manager');
 
 
 let authState, saveState;
@@ -56,7 +55,7 @@ const connectToWhatsApp = async (retry = 0) => {
 				if (state.startTime > message.messageTimestamp) {
 					return;
 				}
-				if (!['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].some(el => Object.keys(message.message).includes(el))) {
+				if (!['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].some(el => Object.keys(message.message || {}).includes(el))) {
 					return;
 				}
 				await new Promise(resolve => state.dcClient.emit('whatsappMessage', message, resolve));
