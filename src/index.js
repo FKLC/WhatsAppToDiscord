@@ -9,10 +9,13 @@ const pino = require('pino');
 
 (async () => {
 	state.logger = pino(pino.destination('logs.txt'));
+	process.on('uncaughtException', (err) => {
+		state.logger.error(err);
+	});
 
 	state.logger.info('Starting');
 
-	await utils.checkVersion('v0.6.7');
+	await utils.checkVersion('v0.6.8');
 	state.logger.info('Update checked.');
 
 	await storage.initializeDB();
