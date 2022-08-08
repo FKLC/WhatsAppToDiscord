@@ -15,7 +15,7 @@ const pino = require('pino');
 
 	state.logger.info('Starting');
 
-	await utils.checkVersion('v0.6.8');
+	await utils.checkVersion('v0.6.9');
 	state.logger.info('Update checked.');
 
 	await storage.initializeDB();
@@ -42,8 +42,10 @@ const pino = require('pino');
 
 	console.log('Bot is now running. Press CTRL-C to exit.');
 
-	process.on('SIGINT', async () => {
-		await utils.save();
-		process.exit();
-	});
+	['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'uncaughtException', 'SIGTERM'].forEach((eventName) =>
+		process.on(eventName, async () => {
+			state.logger.info('Exiting!');
+			await utils.save();
+			process.exit();
+		}));
 })();

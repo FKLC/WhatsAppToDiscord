@@ -18,6 +18,7 @@ const connectToWhatsApp = async (retry = 0) => {
 		printQRInTerminal: false,
 		auth: authState,
 		logger: state.logger,
+		markOnlineOnConnect: false,
 	});
 	client.contacts = state.contacts;
 
@@ -29,7 +30,7 @@ const connectToWhatsApp = async (retry = 0) => {
 		if (connection === 'close') {
 			await controlChannel.send('WhatsApp connection closed! Trying to reconnect!');
 			state.logger.error(lastDisconnect.error);
-			if (retry !== 3) {
+			if (retry !== 2) {
 				await connectToWhatsApp(retry + 1);
 			}
 			else {
@@ -44,12 +45,12 @@ const connectToWhatsApp = async (retry = 0) => {
 	});
 	client.ev.on('creds.update', saveState);
 	['chats.set', 'contacts.set', 'chats.upsert', 'chats.update', 'contacts.upsert', 'contacts.update', 'groups.upsert',
-		'groups.update'].forEach((eventName) => client.ev.addListener(eventName, waUtils.updateContacts));
+		'groups.update'].forEach((eventName) => client.ev.on(eventName, waUtils.updateContacts));
 
 	client.ev.on('messages.upsert', async update => {
 		if (update.type === 'notify') {
 			for await (const message of update.messages) {
-				if (!message.key.fromMe && (state.settings.Whitelist.length && !(state.settings.Whitelist.includes(message.key.remoteJid)))) {
+				if (state.settings.Whitelist.length && !(state.settings.Whitelist.includes(message.key.remoteJid))) {
 					return;
 				}
 				if (state.startTime > message.messageTimestamp) {
@@ -63,7 +64,7 @@ const connectToWhatsApp = async (retry = 0) => {
 		}
 	});
 
-	client.ev.addListener('discordMessage', async message => {
+	client.ev.on('discordMessage', async message => {
 		const jid = dcUtils.channelIdToJid(message.channel.id);
 		if (!jid) {
 			message.channel.send('Couldn\'t find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.');
