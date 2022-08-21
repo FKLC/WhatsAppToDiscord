@@ -9,7 +9,7 @@ const state = require('./state');
 
 let authState, saveState;
 
-const connectToWhatsApp = async (retry = 0) => {
+const connectToWhatsApp = async (retry = 1) => {
 	const controlChannel = await state.getControlChannel();
 	const { version } = await fetchLatestBaileysVersion();
 
@@ -28,19 +28,19 @@ const connectToWhatsApp = async (retry = 0) => {
 			await waUtils.sendQR(qr);
 		}
 		if (connection === 'close') {
-			await controlChannel.send('WhatsApp connection closed! Trying to reconnect!');
 			state.logger.error(lastDisconnect.error);
-			if (retry < 2) {
+			if (retry <= 3) {
+				await controlChannel.send(`WhatsApp connection failed! Trying to reconnect! Retry #${retry}`);
 				await connectToWhatsApp(retry + 1);
 			}
-			else if(retry<10){
-				const delay=(retry-2)*30
-				await controlChannel.send(`Failed connecting ${retry+1} times. Waiting ${delay} seconds`);
-				await new Promise(resolve => setTimeout(resolve, 1000));
+			else if(retry <= 5){
+				const delay = (retry - 3) * 10;
+				await controlChannel.send(`WhatsApp connection failed! Waiting ${delay} seconds before trying to reconnect! Retry #${retry}.`);
+				await new Promise(resolve => setTimeout(resolve, delay * 1000));
 				await connectToWhatsApp(retry + 1);
 			}
 			else {
-				await controlChannel.send('Failed connecting 10 times. Please rescan the QR code.');
+				await controlChannel.send('Failed connecting 5 times. Please rescan the QR code.');
 				await module.exports.start(true);
 			}
 		}

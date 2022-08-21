@@ -15,7 +15,7 @@ const pino = require('pino');
 
 	state.logger.info('Starting');
 
-	await utils.checkVersion('v0.6.9');
+	await utils.checkVersion('v0.7.0');
 	state.logger.info('Update checked.');
 
 	await storage.initializeDB();

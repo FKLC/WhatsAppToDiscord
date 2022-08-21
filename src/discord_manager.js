@@ -54,11 +54,14 @@ client.on('whatsappMessage', async (message, resolve) => {
 		content += message;
 		break;
 	case 'extendedText':
-		if (message.contextInfo.isForwarded) {
+		if (message.contextInfo?.isForwarded) {
 			content += `> Forwarded Message:\n${message.text}`;
 		}
-		else if (message.contextInfo.quotedMessage) {
+		else if (message.contextInfo?.quotedMessage) {
 			content += `> ${quotedName}: ${message.contextInfo.quotedMessage.conversation.split('\n').join('\n> ')}\n${message.text}`;
+		}
+		else if (message.canonicalUrl) {
+			content += message.text;
 		}
 		break;
 	case 'image':
