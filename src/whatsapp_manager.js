@@ -30,11 +30,17 @@ const connectToWhatsApp = async (retry = 0) => {
 		if (connection === 'close') {
 			await controlChannel.send('WhatsApp connection closed! Trying to reconnect!');
 			state.logger.error(lastDisconnect.error);
-			if (retry !== 2) {
+			if (retry < 2) {
+				await connectToWhatsApp(retry + 1);
+			}
+			else if(retry<10){
+				const delay=(retry-2)*30
+				await controlChannel.send(`Failed connecting ${retry+1} times. Waiting ${delay} seconds`);
+				await new Promise(resolve => setTimeout(resolve, 1000));
 				await connectToWhatsApp(retry + 1);
 			}
 			else {
-				await controlChannel.send('Failed reconnecting 3 times. Please rescan the QR code.');
+				await controlChannel.send('Failed connecting 10 times. Please rescan the QR code.');
 				await module.exports.start(true);
 			}
 		}
