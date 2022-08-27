@@ -20,8 +20,11 @@
   "author": "Fatih Kilic",
   "license": "MIT",
   "devDependencies": {
-    "eslint": "^8.16.0",
-    "pkg": "^5.7.0"
+    "eslint": "^7.32.0 || ^8.2.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.25.2",
+    "pkg": "^5.7.0",
+    "prettier": "^2.7.1"
   },
   "pkg": {
     "assets": "node_modules/sqlite3/lib/binding/**"
