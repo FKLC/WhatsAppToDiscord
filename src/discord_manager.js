@@ -32,7 +32,7 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
   if (rawMessage.key.participant && state.settings.WAGroupPrefix) {
     content += `[${name}] `;
   }
-  let messageType = Object.keys(rawMessage.message)[0];
+  let messageType = Object.keys(rawMessage.message).filter((attr) => ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(attr))[0];
   const message = rawMessage.message[messageType];
   messageType = messageType.replace('Message', '');
 
@@ -144,9 +144,7 @@ const commands = {
     await controlChannel.send('Removed from the whitelist!');
   },
   listwhitelist: async () => {
-    await controlChannel.send(
-      state.settings.Whitelist.length ? `\`\`\`${state.settings.Whitelist.map((jid) => whatsappUtils.jidToName(jid)).join('\n')}\`\`\`` : 'Whitelist is empty/inactive.',
-    );
+    await controlChannel.send(state.settings.Whitelist.length ? `\`\`\`${state.settings.Whitelist.map((jid) => whatsappUtils.jidToName(jid)).join('\n')}\`\`\`` : 'Whitelist is empty/inactive.');
   },
   enabledcprefix: async () => {
     state.settings.DiscordPrefix = true;

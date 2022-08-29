@@ -26,7 +26,7 @@ module.exports = {
     if (!isNaN(name)) {
       return `${name}@s.whatsapp.net`;
     }
-    return Object.keys(state.waClient.contacts).find((key) => state.waClient.contacts[key].toLowerCase() === name);
+    return Object.keys(state.waClient.contacts).find((key) => state.waClient.contacts[key].toLowerCase() === name.toLowerCase());
   },
   updateContacts: (rawContacts) => {
     const contacts = rawContacts.chats || rawContacts.contacts || rawContacts;
