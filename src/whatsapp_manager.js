@@ -42,6 +42,7 @@ const connectToWhatsApp = async (retry = 1) => {
       }
     } else if (connection === 'open') {
       state.waClient = client;
+      retry = 1;
       await controlChannel.send('WhatsApp connection successfully opened!');
     }
   });
