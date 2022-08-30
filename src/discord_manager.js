@@ -86,17 +86,22 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
 });
 
 client.on('whatsappReaction', async (rawReaction, resolve) => {
+  if (state.lastMessages[rawReaction.reaction.key.id]) {
+    return;
+  }
+
   const channelId = state.chats[rawReaction.key.remoteJid]?.channelId;
   if (channelId == null) {
     return;
   }
-
   const channel = await (await state.getGuild()).channels.fetch(channelId);
+
   const messageId = Object.keys(state.lastMessages).find((key) => state.lastMessages[key] === rawReaction.key.id);
   if (messageId == null) {
     return;
   }
   const message = await channel.messages.fetch(messageId);
+
   await message.react(rawReaction.reaction.text);
   resolve();
 });
@@ -245,7 +250,18 @@ client.on('messageReactionAdd', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  state.waClient.ev.emit('discordReaction', reaction);
+  state.waClient.ev.emit('discordReaction', { reaction });
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  const messageId = state.lastMessages[reaction.message.id];
+  if (messageId == null) {
+    reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
+  }
+  if (user.id === state.dcClient.user.id) {
+    return;
+  }
+  state.waClient.ev.emit('discordReaction', { reaction, removed: true });
 });
 
 module.exports = {

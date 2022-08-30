@@ -115,7 +115,7 @@ const connectToWhatsApp = async (retry = 1) => {
     state.lastMessages[message.id] = messageId;
   });
 
-  client.ev.on('discordReaction', async (reaction) => {
+  client.ev.on('discordReaction', async ({ reaction, removed = false }) => {
     const jid = dcUtils.channelIdToJid(reaction.message.channelId);
     if (!jid) {
       reaction.message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
@@ -126,20 +126,21 @@ const connectToWhatsApp = async (retry = 1) => {
       id: state.lastMessages[reaction.message.id],
       fromMe: reaction.message.webhookId == null || reaction.message.author.username === 'You',
       remoteJid: jid,
-
-      participant: undefined,
     };
 
     if (jid.endsWith('@g.us')) {
       key.participant = waUtils.nameToJid(reaction.message.author.username);
     }
 
-    await client.sendMessage(jid, {
-      react: {
-        text: reaction.emoji.name,
-        key,
-      },
-    });
+    const messageId = (
+      await client.sendMessage(jid, {
+        react: {
+          text: removed ? '' : reaction.emoji.name,
+          key,
+        },
+      })
+    ).key.id;
+    state.lastMessages[messageId] = true;
   });
 };
 
