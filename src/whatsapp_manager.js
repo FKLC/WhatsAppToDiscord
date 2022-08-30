@@ -69,6 +69,20 @@ const connectToWhatsApp = async (retry = 1) => {
     }
   });
 
+  client.ev.on('messages.reaction', async (reactions) => {
+    for await (const reaction of reactions) {
+      if (state.settings.Whitelist.length && !state.settings.Whitelist.includes(reaction.key.remoteJid)) {
+        return;
+      }
+      if (state.startTime > reaction.messageTimestamp) {
+        return;
+      }
+      await new Promise((resolve) => {
+        state.dcClient.emit('whatsappReaction', reaction, resolve);
+      });
+    }
+  });
+
   client.ev.on('discordMessage', async (message) => {
     const jid = dcUtils.channelIdToJid(message.channel.id);
     if (!jid) {
@@ -99,6 +113,33 @@ const connectToWhatsApp = async (retry = 1) => {
 
     const messageId = (await client.sendMessage(jid, content, options)).key.id;
     state.lastMessages[message.id] = messageId;
+  });
+
+  client.ev.on('discordReaction', async (reaction) => {
+    const jid = dcUtils.channelIdToJid(reaction.message.channelId);
+    if (!jid) {
+      reaction.message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
+      return;
+    }
+
+    const key = {
+      id: state.lastMessages[reaction.message.id],
+      fromMe: reaction.message.webhookId == null || reaction.message.author.username === 'You',
+      remoteJid: jid,
+
+      participant: undefined,
+    };
+
+    if (jid.endsWith('@g.us')) {
+      key.participant = waUtils.nameToJid(reaction.message.author.username);
+    }
+
+    await client.sendMessage(jid, {
+      react: {
+        text: reaction.emoji.name,
+        key,
+      },
+    });
   });
 };
 

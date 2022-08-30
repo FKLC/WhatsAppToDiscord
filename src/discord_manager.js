@@ -5,7 +5,7 @@ const whatsappUtils = require('./whatsapp_utils');
 const state = require('./state');
 
 const client = new Client({
-  intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
+  intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS],
 });
 let controlChannel;
 
@@ -82,6 +82,22 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
     ).id;
     state.lastMessages[messageId] = rawMessage.key.id;
   }
+  resolve();
+});
+
+client.on('whatsappReaction', async (rawReaction, resolve) => {
+  const channelId = state.chats[rawReaction.key.remoteJid]?.channelId;
+  if (channelId == null) {
+    return;
+  }
+
+  const channel = await (await state.getGuild()).channels.fetch(channelId);
+  const messageId = Object.keys(state.lastMessages).find((key) => state.lastMessages[key] === rawReaction.key.id);
+  if (messageId == null) {
+    return;
+  }
+  const message = await channel.messages.fetch(messageId);
+  await message.react(rawReaction.reaction.text);
   resolve();
 });
 
@@ -219,6 +235,17 @@ client.on('messageCreate', async (message) => {
   } else {
     state.waClient.ev.emit('discordMessage', message);
   }
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+  const messageId = state.lastMessages[reaction.message.id];
+  if (messageId == null) {
+    reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
+  }
+  if (user.id === state.dcClient.user.id) {
+    return;
+  }
+  state.waClient.ev.emit('discordReaction', reaction);
 });
 
 module.exports = {
