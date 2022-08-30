@@ -64,6 +64,10 @@ module.exports = {
     await state.dcClient.destroy();
   },
   checkVersion: async (currVer) => {
+    if (process.argv0.replace('.exe', '').endsWith('node')) {
+      console.log('Running script with node. Skipping auto-update.');
+      return;
+    }
     await updater.cleanOldVersion();
     const latestInfo = await (await fetch('https://api.github.com/repos/FKLC/WhatsAppToDiscord/releases/latest')).json();
     if (latestInfo.tag_name !== currVer) {

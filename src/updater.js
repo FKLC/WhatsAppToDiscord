@@ -33,19 +33,10 @@ const downloadLatestVersion = async (executableName, targetName) => {
   await pipeline((await fetch(`https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${executableName}`)).body, fs.createWriteStream(targetName));
 };
 
-const validateSignature = async (currExecutableName, executableName) => crypto.verify(
-  'RSA-SHA256',
-  fs.readFileSync(currExecutableName),
-  publicKey,
-  Buffer.from(await (await fetch(`https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${executableName}.sig`)).arrayBuffer()),
-);
+const validateSignature = async (currExecutableName, executableName) => crypto.verify('RSA-SHA256', fs.readFileSync(currExecutableName), publicKey, Buffer.from(await (await fetch(`https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${executableName}.sig`)).arrayBuffer()));
 
 module.exports = {
   update: async () => {
-    if (process.argv0.replace('.exe', '').endsWith('node')) {
-      console.log('Running script with node. Skipping auto-update.');
-      return false;
-    }
     const currExecutableName = getCurrentExecutableName();
     const executableName = getExecutableName();
     if (!executableName) {

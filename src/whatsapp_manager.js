@@ -42,6 +42,7 @@ const connectToWhatsApp = async (retry = 1) => {
       }
     } else if (connection === 'open') {
       state.waClient = client;
+      // eslint-disable-next-line no-param-reassign
       retry = 1;
       await controlChannel.send('WhatsApp connection successfully opened!');
     }
@@ -96,7 +97,8 @@ const connectToWhatsApp = async (retry = 1) => {
       options.quoted = await waUtils.createQuoteMessage(message);
     }
 
-    await client.sendMessage(jid, content, options);
+    const messageId = (await client.sendMessage(jid, content, options)).key.id;
+    state.lastMessages[message.id] = messageId;
   });
 };
 

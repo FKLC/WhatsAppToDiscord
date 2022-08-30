@@ -52,6 +52,7 @@ module.exports = {
     return {
       key: {
         remoteJid: refMessage.webhookId && refMessage.author.username !== 'You' ? module.exports.nameToJid(refMessage.author.username) : state.waClient.user.id,
+        id: state.lastMessages[refMessage.id],
       },
       message: { conversation: refMessage.content },
     };

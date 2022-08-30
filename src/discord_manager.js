@@ -72,12 +72,15 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
       break;
   }
   if (content || files.length) {
-    await webhook.send({
-      content: content || null,
-      username: name,
-      files,
-      avatarURL: await whatsappUtils.getProfilePic(senderJid),
-    });
+    const messageId = (
+      await webhook.send({
+        content: content || null,
+        username: name,
+        files,
+        avatarURL: await whatsappUtils.getProfilePic(senderJid),
+      })
+    ).id;
+    state.lastMessages[messageId] = rawMessage.key.id;
   }
   resolve();
 });
@@ -86,7 +89,7 @@ const commands = {
   ping: async (message) => {
     controlChannel.send(`Pong ${Date.now() - message.createdTimestamp}ms!`);
   },
-  start: async (message, params) => {
+  start: async (_message, params) => {
     if (!params.length) {
       await controlChannel.send('Please enter a phone number or name. Usage: `start <number with country code or name>`.');
       return;
@@ -104,7 +107,7 @@ const commands = {
       state.settings.Whitelist.push(jid);
     }
   },
-  list: async (message, params) => {
+  list: async (_message, params) => {
     let contacts = whatsappUtils.contactNames();
     if (params) {
       contacts = contacts.filter((name) => name.toLowerCase().includes(params.join(' ')));
