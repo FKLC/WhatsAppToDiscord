@@ -1,5 +1,5 @@
 const { Client, Intents } = require('discord.js');
-const { downloadContentFromMessage } = require('@adiwajshing/baileys');
+const { downloadMediaMessage } = require('@adiwajshing/baileys');
 const { getOrCreateChannel, channelIdToJid, getFileName } = require('./discord_utils');
 const whatsappUtils = require('./whatsapp_utils');
 const state = require('./state');
@@ -45,7 +45,7 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
         content += `> Forwarded Message:\n${message.text}`;
       } else if (message.contextInfo?.quotedMessage) {
         content += `> ${quotedName}: ${message.contextInfo.quotedMessage.conversation.split('\n').join('\n> ')}\n${message.text}`;
-      } else if (message.canonicalUrl) {
+      } else if (message.canonicalUrl || message.text) {
         content += message.text;
       }
       break;
@@ -54,7 +54,7 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
     case 'audio':
     case 'document':
     case 'sticker':
-      if (rawMessage.fileLength.low > 8388284) {
+      if (message.fileLength.low > 8388284) {
         await webhook.send({
           content: "WA2DC Attention: Received a file, but it's over 8MB. Check WhatsApp on your phone.",
           username: name,
@@ -63,8 +63,8 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
         break;
       }
       files.push({
-        attachment: await downloadContentFromMessage(rawMessage, messageType),
-        name: getFileName(rawMessage, messageType),
+        attachment: await downloadMediaMessage(rawMessage, 'buffer', {}, { logger: state.logger, reuploadRequest: state.waClient.updateMediaMessage }),
+        name: getFileName(message, messageType),
       });
       content += rawMessage.caption || '';
       break;
