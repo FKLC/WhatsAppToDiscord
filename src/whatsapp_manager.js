@@ -86,6 +86,9 @@ const connectToWhatsApp = async (retry = 1) => {
   client.ev.on('discordMessage', async (message) => {
     const jid = dcUtils.channelIdToJid(message.channel.id);
     if (!jid) {
+      if (!state.settings.Categories.includes(message.channel?.parent?.id)) {
+        return;
+      }
       message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
       return;
     }

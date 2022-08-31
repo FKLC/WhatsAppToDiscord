@@ -6,41 +6,52 @@ module.exports = {
   repairChannels: async () => {
     const guild = await state.dcClient.guilds.fetch(state.settings.GuildID);
     await guild.channels.fetch();
-    const categoryExists = await guild.channels.fetch(state.settings.CategoryID).catch(() => null);
+
+    if (state.settings.Categories == null) {
+      state.settings.Categories = [state.settings.CategoryID];
+    }
+    const categoryExists = await guild.channels.fetch(state.settings.Categories?.[0]).catch(() => null);
     const controlExists = await guild.channels.fetch(state.settings.ControlChannelID).catch(() => null);
 
     if (!categoryExists) {
-      state.settings.CategoryID = (
+      state.settings.Categories[0] = (
         await guild.channels.create('whatsapp', {
           type: 'GUILD_CATEGORY',
         })
       ).id;
     }
+
     if (!controlExists) {
       state.settings.ControlChannelID = (
         await guild.channels.create('control-room', {
           type: 'GUILD_TEXT',
-          parent: state.settings.CategoryID,
+          parent: state.settings.Categories[0],
         })
       ).id;
     }
 
-    await (await guild.channels.fetch(state.settings.ControlChannelID)).setPosition(0);
-    for await (const [jid, webhook] of Object.entries(state.chats)) {
-      const channel = await guild.channels.fetch(webhook.channelId).catch(() => null);
-      if (channel != null) {
-        await channel.edit({
-          parent: state.settings.CategoryID,
-          position: 999,
-        });
-      } else {
-        delete state.chats[jid];
+    await (await guild.channels.fetch(state.settings.ControlChannelID)).edit({
+      position: 0,
+      parent: state.settings.Categories[0],
+    });
+    for (const [jid, webhook] of Object.entries(state.chats)) {
+      guild.channels.fetch(webhook.channelId).catch(() => null).then((channel) => {
+        if (channel == null) {
+          delete state.chats[jid];
+        }
+      });
+    }
+
+    for await (const categoryId of state.settings.Categories) {
+      const category = await guild.channels.fetch(categoryId).catch(() => null);
+      if (category == null) {
+        state.settings.Categories = state.settings.Categories.filter((id) => categoryId !== id);
       }
     }
 
-    for await (const [, channel] of guild.channels.cache) {
-      if (channel.id !== state.settings.ControlChannelID && channel.parentId === state.settings.CategoryID && !module.exports.channelIdToJid(channel.id)) {
-        await channel.delete();
+    for (const [, channel] of guild.channels.cache) {
+      if (channel.id !== state.settings.ControlChannelID && state.settings.Categories.includes(channel.parentId) && !module.exports.channelIdToJid(channel.id)) {
+        channel.edit({ parent: null });
       }
     }
   },
@@ -60,12 +71,21 @@ module.exports = {
       await client.destroy();
       resolve({
         GuildID: guild.id,
-        CategoryID: category.id,
+        Categories: [category.id],
         ControlChannelID: controlChannel.id,
       });
     });
     client.login(token);
   }),
+  getCategory: async (nthChannel) => {
+    const nthCategory = Math.floor(nthChannel / 50);
+    if (state.settings.Categories[nthCategory] == null) {
+      state.settings.Categories.push((await (await state.getGuild()).channels.create(`whatsapp ${nthCategory + 1}`, {
+        type: 'GUILD_CATEGORY',
+      })).id);
+    }
+    return state.settings.Categories[nthCategory];
+  },
   getOrCreateChannel: async (jid) => {
     if (state.chats[jid]) {
       return new Webhook(state.dcClient, state.chats[jid]);
@@ -76,7 +96,7 @@ module.exports = {
       await state.getGuild()
     ).channels.create(name, {
       type: 'GUILD_TEXT',
-      parent: await state.getCategory(),
+      parent: await module.exports.getCategory(Object.keys(state.chats).length + 1), // await state.getCategory(),
     });
     const webhook = await channel.createWebhook('WA2DC');
     state.chats[jid] = {

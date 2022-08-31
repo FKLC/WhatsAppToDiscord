@@ -19,6 +19,7 @@ client.on('ready', async () => {
 
 client.on('channelDelete', async (channel) => {
   delete state.chats[channelIdToJid(channel.id)];
+  state.settings.Categories = state.settings.Categories.filter((id) => channel.id !== id);
 });
 
 client.on('whatsappMessage', async (rawMessage, resolve) => {
@@ -230,7 +231,7 @@ const commands = {
 };
 
 client.on('messageCreate', async (message) => {
-  if (message.author === client.user || message.webhookId != null || message.channel?.parent?.id !== state.settings.CategoryID) {
+  if (message.author === client.user || message.webhookId != null) {
     return;
   }
 
