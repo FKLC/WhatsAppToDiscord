@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 
-const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite://storage.db', {
+const sequelize = new Sequelize('sqlite://storage.db', {
   logging: false,
   define: {
     timestamps: false,

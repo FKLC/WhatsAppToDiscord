@@ -11,6 +11,10 @@ WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Di
 - Open Source, you can see, modify and run your own version of the bot!
 - Self Hosted, so your data never leaves your computer
 
----
+### Setup
 
-### For setup and commands, check out the [documentation](https://fklc.github.io/WhatsAppToDiscord/)!
+The setup is short, but challenging for some. So, we explained every steps in detail for your convenience, just [click here](setup.md) to get started.
+
+### Commands
+
+The bot supports many commands to allow rich customization. You can see the commands by [clicking here.](commands.md)

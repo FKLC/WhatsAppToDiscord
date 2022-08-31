@@ -1,0 +1,5 @@
+- [Home](/)
+- [Setup](setup.md)
+- [Commands](commands.md)
+- [FAQ](faq.md)
+- [Report an Issue](https://github.com/FKLC/WhatsAppToDiscord/issues/new/choose)
