@@ -91,12 +91,17 @@ module.exports = {
       return new Webhook(state.dcClient, state.chats[jid]);
     }
 
+    const createChannel = async (channelName) => (await state.getGuild())
+      .channels.create(channelName, {
+        type: 'GUILD_TEXT',
+        parent: await module.exports.getCategory(Object.keys(state.chats).length + 1),
+      });
     const name = jidToName(jid);
-    const channel = await (
-      await state.getGuild()
-    ).channels.create(name, {
-      type: 'GUILD_TEXT',
-      parent: await module.exports.getCategory(Object.keys(state.chats).length + 1), // await state.getCategory(),
+    const channel = await createChannel(name).catch(async (err) => {
+      if (err.code === 50035) {
+        return createChannel('invalid-name');
+      }
+      throw err;
     });
     const webhook = await channel.createWebhook('WA2DC');
     state.chats[jid] = {
