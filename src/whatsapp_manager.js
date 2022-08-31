@@ -94,7 +94,7 @@ const connectToWhatsApp = async (retry = 1) => {
     const options = {};
 
     if (state.settings.UploadAttachments) {
-      await Promise.all(message.attachments.map(([, attachment]) => client.sendMessage(jid, waUtils.createDocumentContent(attachment))));
+      await Promise.all([...message.attachments.values()].map((attachment) => client.sendMessage(jid, waUtils.createDocumentContent(attachment))));
       if (!message.content) {
         return;
       }
