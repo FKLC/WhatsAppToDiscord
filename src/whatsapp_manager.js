@@ -114,8 +114,7 @@ const connectToWhatsApp = async (retry = 1) => {
       options.quoted = await waUtils.createQuoteMessage(message);
     }
 
-    const messageId = (await client.sendMessage(jid, content, options)).key.id;
-    state.lastMessages[message.id] = messageId;
+    state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
   });
 
   client.ev.on('discordReaction', async ({ reaction, removed = false }) => {
