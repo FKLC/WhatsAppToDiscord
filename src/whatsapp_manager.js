@@ -112,12 +112,15 @@ const connectToWhatsApp = async (retry = 1) => {
 
     if (message.reference) {
       options.quoted = await waUtils.createQuoteMessage(message);
+      if (options.quoted == null) {
+        message.channel.send("Couldn't find the message quoted. You can only reply to messages received after the bot went online. Sending the message without the quoted message.");
+      }
     }
 
     state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
   });
 
-  client.ev.on('discordReaction', async ({ reaction, removed = false }) => {
+  client.ev.on('discordReaction', async ({ reaction, removed }) => {
     const jid = dcUtils.channelIdToJid(reaction.message.channelId);
     if (!jid) {
       reaction.message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");

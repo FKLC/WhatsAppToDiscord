@@ -1,7 +1,7 @@
 const { Client, Intents } = require('discord.js');
 const { downloadMediaMessage } = require('@adiwajshing/baileys');
-const { getOrCreateChannel, channelIdToJid, getFileName } = require('./discord_utils');
-const whatsappUtils = require('./whatsapp_utils');
+const dcUtils = require('./discord_utils');
+const waUtils = require('./whatsapp_utils');
 const state = require('./state');
 
 const client = new Client({
@@ -18,15 +18,15 @@ client.on('ready', async () => {
 });
 
 client.on('channelDelete', async (channel) => {
-  delete state.chats[channelIdToJid(channel.id)];
+  delete state.chats[dcUtils.channelIdToJid(channel.id)];
   state.settings.Categories = state.settings.Categories.filter((id) => channel.id !== id);
 });
 
 client.on('whatsappMessage', async (rawMessage, resolve) => {
-  const { channelJid, senderJid } = whatsappUtils.getWebhookAndSenderJid(rawMessage, rawMessage.key.fromMe);
-  const webhook = await getOrCreateChannel(channelJid);
-  const name = whatsappUtils.jidToName(senderJid, rawMessage.pushName);
-  const quotedName = whatsappUtils.jidToName(rawMessage.message.extendedTextMessage?.contextInfo?.participant || '');
+  const { channelJid, senderJid } = waUtils.getWebhookAndSenderJid(rawMessage, rawMessage.key.fromMe);
+  const webhook = await dcUtils.getOrCreateChannel(channelJid);
+  const name = waUtils.jidToName(senderJid, rawMessage.pushName);
+  const quotedName = waUtils.jidToName(rawMessage.message.extendedTextMessage?.contextInfo?.participant || '');
   const files = [];
   let content = '';
 
@@ -59,26 +59,36 @@ client.on('whatsappMessage', async (rawMessage, resolve) => {
         await webhook.send({
           content: "WA2DC Attention: Received a file, but it's over 8MB. Check WhatsApp on your phone.",
           username: name,
-          avatarURL: await whatsappUtils.getProfilePic(senderJid),
+          avatarURL: await waUtils.getProfilePic(senderJid),
         });
         break;
       }
       files.push({
         attachment: await downloadMediaMessage(rawMessage, 'buffer', {}, { logger: state.logger, reuploadRequest: state.waClient.updateMediaMessage }),
-        name: getFileName(message, messageType),
+        name: dcUtils.getFileName(message, messageType),
       });
-      content += rawMessage.caption || '';
+      content += message.caption || '';
       break;
     default:
       break;
   }
   if (content || files.length) {
+    content = dcUtils.partitionText(content);
+    while (content.length > 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await webhook.send({
+        content: content.shift(),
+        username: name,
+        // eslint-disable-next-line no-await-in-loop
+        avatarURL: await waUtils.getProfilePic(senderJid),
+      });
+    }
     const messageId = (
       await webhook.send({
-        content: content || null,
+        content: content.shift() || null,
         username: name,
         files,
-        avatarURL: await whatsappUtils.getProfilePic(senderJid),
+        avatarURL: await waUtils.getProfilePic(senderJid),
       })
     ).id;
     state.lastMessages[messageId] = rawMessage.key.id;
@@ -118,19 +128,19 @@ const commands = {
     }
 
     // eslint-disable-next-line no-restricted-globals
-    const jid = isNaN(params[0]) ? whatsappUtils.nameToJid(params.join(' ')) : `${params[0]}@s.whatsapp.net`;
+    const jid = isNaN(params[0]) ? waUtils.nameToJid(params.join(' ')) : `${params[0]}@s.whatsapp.net`;
     if (!jid) {
       await controlChannel.send(`Couldn't find \`${params.join(' ')}\`.`);
       return;
     }
-    await getOrCreateChannel(jid);
+    await dcUtils.getOrCreateChannel(jid);
 
     if (state.settings.Whitelist.length) {
       state.settings.Whitelist.push(jid);
     }
   },
   list: async (_message, params) => {
-    let contacts = whatsappUtils.contactNames();
+    let contacts = waUtils.contactNames();
     if (params) {
       contacts = contacts.filter((name) => name.toLowerCase().includes(params.join(' ')));
     }
@@ -143,7 +153,7 @@ const commands = {
       return;
     }
 
-    const jid = channelIdToJid(channelID);
+    const jid = dcUtils.channelIdToJid(channelID);
     if (!jid) {
       await controlChannel.send("Couldn't find a chat with the given channel.");
       return;
@@ -159,7 +169,7 @@ const commands = {
       return;
     }
 
-    const jid = channelIdToJid(channelID);
+    const jid = dcUtils.channelIdToJid(channelID);
     if (!jid) {
       await controlChannel.send("Couldn't find a chat with the given channel.");
       return;
@@ -169,7 +179,7 @@ const commands = {
     await controlChannel.send('Removed from the whitelist!');
   },
   listwhitelist: async () => {
-    await controlChannel.send(state.settings.Whitelist.length ? `\`\`\`${state.settings.Whitelist.map((jid) => whatsappUtils.jidToName(jid)).join('\n')}\`\`\`` : 'Whitelist is empty/inactive.');
+    await controlChannel.send(state.settings.Whitelist.length ? `\`\`\`${state.settings.Whitelist.map((jid) => waUtils.jidToName(jid)).join('\n')}\`\`\`` : 'Whitelist is empty/inactive.');
   },
   enabledcprefix: async () => {
     state.settings.DiscordPrefix = true;
@@ -251,7 +261,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  state.waClient.ev.emit('discordReaction', { reaction });
+  state.waClient.ev.emit('discordReaction', { reaction, removed: false });
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {

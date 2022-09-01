@@ -49,6 +49,9 @@ module.exports = {
   },
   createQuoteMessage: async (msg) => {
     const refMessage = await msg.channel.messages.fetch(msg.reference.messageId);
+    if (state.lastMessages[refMessage.id] == null) {
+      return null;
+    }
     return {
       key: {
         remoteJid: refMessage.webhookId && refMessage.author.username !== 'You' ? module.exports.nameToJid(refMessage.author.username) : state.waClient.user.id,
@@ -70,7 +73,7 @@ module.exports = {
     };
   },
   getProfilePic: async (jid) => {
-    if (state.profilePicsCache[jid] == null) {
+    if (state.profilePicsCache[jid] === undefined) {
       try {
         state.profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview');
       } catch {

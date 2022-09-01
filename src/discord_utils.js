@@ -122,4 +122,6 @@ module.exports = {
     }
     return `${messageType}.${message.mimetype.split('/')[1]}`;
   },
+  partitionText: (text) => text.split(/(.{1999})/s).filter((O) => O).join('-').split(/(.{2000})/s)
+    .filter((O) => O),
 };
