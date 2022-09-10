@@ -18,7 +18,9 @@ client.on('ready', async () => {
 });
 
 client.on('channelDelete', async (channel) => {
-  delete state.chats[dcUtils.channelIdToJid(channel.id)];
+  const jid = dcUtils.channelIdToJid(channel.id);
+  delete state.chats[jid];
+  delete dcUtils.goccRuns[jid];
   state.settings.Categories = state.settings.Categories.filter((id) => channel.id !== id);
 });
 

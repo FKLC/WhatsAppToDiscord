@@ -8,7 +8,6 @@ module.exports = {
   chats: {},
   contacts: {},
   startTime: Math.round(Date.now() / 1000),
-  profilePicsCache: {},
   logger: null,
   lastMessages: (() => {
     const messageIds = [];

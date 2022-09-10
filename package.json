@@ -14,7 +14,8 @@
   "description": "WhatsAppToDiscord is a bot that bridges WhatsApp and Discord",
   "main": "src/index.js",
   "scripts": {
-    "start": "node ."
+    "start": "node .",
+    "preview-docs": "docsify serve docs"
   },
   "bin": "src/index.js",
   "author": "Fatih Kilic",

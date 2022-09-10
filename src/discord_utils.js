@@ -87,8 +87,17 @@ module.exports = {
     return state.settings.Categories[nthCategory];
   },
   getOrCreateChannel: async (jid) => {
+    if (module.exports.goccRuns[jid]) {
+      return module.exports.goccRuns[jid];
+    }
+    let resolve;
+    module.exports.goccRuns[jid] = new Promise((res) => {
+      resolve = res;
+    });
     if (state.chats[jid]) {
-      return new Webhook(state.dcClient, state.chats[jid]);
+      const webhook = new Webhook(state.dcClient, state.chats[jid]);
+      resolve(webhook);
+      return webhook;
     }
 
     const createChannel = async (channelName) => (await state.getGuild())
@@ -110,8 +119,10 @@ module.exports = {
       token: webhook.token,
       channelId: webhook.channelId,
     };
+    resolve(webhook);
     return webhook;
   },
+  goccRuns: {},
   channelIdToJid: (channelId) => Object.keys(state.chats).find((key) => state.chats[key].channelId === channelId),
   getFileName: (message, messageType) => {
     if (messageType === 'audio') {

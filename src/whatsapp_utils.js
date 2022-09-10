@@ -4,10 +4,9 @@ const state = require('./state');
 const useStorageAuthState = require('./useStorageAuthState');
 
 const jidToPhone = (jid) => jid.split(':')[0].split('@')[0];
-
 const isMe = (myJID, jid) => jid.startsWith(jidToPhone(myJID)) && !jid.endsWith('@g.us');
-
 const formatJid = (jid) => `${jidToPhone(jid)}@${jid.split('@')[1]}`;
+const profilePicsCache = {};
 
 module.exports = {
   useStorageAuthState,
@@ -73,13 +72,13 @@ module.exports = {
     };
   },
   getProfilePic: async (jid) => {
-    if (state.profilePicsCache[jid] === undefined) {
+    if (profilePicsCache[jid] === undefined) {
       try {
-        state.profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview');
+        profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview');
       } catch {
-        state.profilePicsCache[jid] = null;
+        profilePicsCache[jid] = null;
       }
     }
-    return state.profilePicsCache[jid];
+    return profilePicsCache[jid];
   },
 };

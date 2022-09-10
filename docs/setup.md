@@ -37,6 +37,11 @@ Please don't get worried about the number of steps listed here. We wanted to be 
   <summary>Show photo</summary>
   <img src="_media/7.jpg" alt="Image showing the add bot screen" />
 </details>
+1. Then, scroll down and enable *"MESSAGE CONTENT INTENT"*
+<details>
+  <summary>Show photo</summary>
+  <img src="_media/7.1.jpg" alt="Image showing the message content intent checkbox" />
+</details>
 1. Now, go back to the file you downloaded, and run it! (Microsoft Defender SmartScreen may warn you about running the executable as this project is quite small and not well-known, but if you feel unsafe, you can always inspect and run the open source code from GitHub using Node. To skip SmartScreen, you can click on *"More Info"*, then *"Run"*)
 <details>
   <summary>Show photo</summary>
