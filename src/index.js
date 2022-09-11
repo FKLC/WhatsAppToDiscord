@@ -14,7 +14,7 @@ const discordUtils = require('./discord_utils');
 
   state.logger.info('Starting');
 
-  await utils.checkVersion('v0.8.2');
+  await utils.checkVersion('v0.8.4');
   state.logger.info('Update checked.');
 
   await storage.initializeDB();
