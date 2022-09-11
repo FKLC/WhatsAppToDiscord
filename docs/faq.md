@@ -13,6 +13,10 @@ The bot is completely open-source, even the compilation is done publicly using [
 ## Negative or sky-high ping
 This is due to the time difference between Discords' servers and your computer. As the ping is measured in milliseconds, even small differences can produce a huge/weird number. This can be fixed, but just syncing the time is an easier solution.
 
+## Bot only responds with `Unknown command type help...`
+This is due to [Discord Intents](https://discord.com/developers/docs/topics/gateway#privileged-intents). You have to enable message content intent. You can do this by going to [Discord Developer Portal](https://discord.com/developers/applications/) > Your Application > Bot > Scroll down > Enable *"MESSAGE CONTENT INTENT"*.
+
+
 ## Where do I type the commands?
 When you invite the bot, it should create a text channel called `#control-room`. There, you can use all the [commands](commands.md).
 
