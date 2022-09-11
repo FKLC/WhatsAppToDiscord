@@ -20,3 +20,5 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 )
+
+retract [v0.1.1-alpha, v0.4.1]
