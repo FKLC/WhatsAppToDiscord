@@ -16,6 +16,8 @@ This is due to the time difference between Discords' servers and your computer. 
 ## Bot only responds with `Unknown command type help...`
 This is due to [Discord Intents](https://discord.com/developers/docs/topics/gateway#privileged-intents). You have to enable message content intent. You can do this by going to [Discord Developer Portal](https://discord.com/developers/applications/) > Your Application > Bot > Scroll down > Enable *"MESSAGE CONTENT INTENT"*.
 
+## Lost my bot token, how to regenerate one?
+You can do this by going to [Discord Developer Portal](https://discord.com/developers/applications/) > Your Application > Bot > Click *"Reset Token"*. A new token will be issued. You can simply copy and paste it to the bot.
 
 ## Where do I type the commands?
 When you invite the bot, it should create a text channel called `#control-room`. There, you can use all the [commands](commands.md).
