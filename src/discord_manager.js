@@ -24,6 +24,37 @@ client.on('channelDelete', async (channel) => {
   state.settings.Categories = state.settings.Categories.filter((id) => channel.id !== id);
 });
 
+client.on('whatsappCall', async (rawCall, resolve) => {
+  const callerId = rawCall.chatId;
+  const callerNumber = callerId.split('@')[0];
+  const webhook = await dcUtils.getOrCreateChannel(callerId);
+  const name = waUtils.jidToName(callerId, callerNumber);
+  const callType = rawCall.isVideo ? 'video' : 'voice';
+  const callString = `${rawCall.isGroup ? 'group' : ''} callType`;
+  let content = '';
+
+  switch (rawCall.status) {
+    case 'offer':
+      content = `${name} Started a call. Dial ${callerNumber} to callback`
+      break;
+    case 'timeout':
+      content = `Missed ${callString}. Dial ${callerNumber} to callback`
+      break;
+    default:
+      break;
+  }
+
+  if (content !== '') {
+    await webhook.send({
+      content,
+      username: name,
+      avatarURL: await waUtils.getProfilePic(callerId),
+    });
+  }
+
+  resolve();
+});
+
 client.on('whatsappMessage', async (rawMessage, resolve) => {
   const { channelJid, senderJid } = waUtils.getWebhookAndSenderJid(rawMessage, rawMessage.key.fromMe);
   const webhook = await dcUtils.getOrCreateChannel(channelJid);

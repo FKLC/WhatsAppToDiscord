@@ -50,6 +50,18 @@ const connectToWhatsApp = async (retry = 1) => {
   client.ev.on('creds.update', saveState);
   ['chats.set', 'contacts.set', 'chats.upsert', 'chats.update', 'contacts.upsert', 'contacts.update', 'groups.upsert', 'groups.update'].forEach((eventName) => client.ev.on(eventName, waUtils.updateContacts));
 
+  client.ev.on('call', async (calls) => {
+    for await (const call of calls) {
+      if (call.status !==  state.callState[call.from]) {
+        state.callState[call.from] = call.status;
+
+        await new Promise((resolve) => {
+          state.dcClient.emit('whatsappCall', call, resolve);
+        });
+      }
+    }
+  });
+
   client.ev.on('messages.upsert', async (update) => {
     if (update.type === 'notify') {
       for await (const message of update.messages) {

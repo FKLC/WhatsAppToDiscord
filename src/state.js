@@ -7,6 +7,7 @@ module.exports = {
   waClient: null,
   chats: {},
   contacts: {},
+  callState: {},
   startTime: Math.round(Date.now() / 1000),
   logger: null,
   lastMessages: (() => {
