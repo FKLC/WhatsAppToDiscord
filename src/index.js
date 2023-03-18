@@ -6,7 +6,7 @@ import discordHandler from './discordHandler.js';
 import whatsappHandler from './whatsappHandler.js';
 
 (async () => {
-  const version = 'v0.9.0';
+  const version = 'v0.9.1';
   state.logger = pino({ mixin() { return { version }; } }, pino.destination('logs.txt'));
   const autoSaver = setInterval(utils.storage.save, 5 * 60 * 1000);
   ['SIGINT', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async (err) => {
