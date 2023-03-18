@@ -1,49 +1,48 @@
-const pino = require('pino');
-const storage = require('./storage_manager');
-const utils = require('./utils');
-const discordManager = require('./discord_manager');
-const whatsappManager = require('./whatsapp_manager');
-const state = require('./state');
-const discordUtils = require('./discord_utils');
+import pino from 'pino';
+
+import state from './state.js';
+import utils from './utils.js';
+import discordHandler from './discordHandler.js';
+import whatsappHandler from './whatsappHandler.js';
 
 (async () => {
-  state.logger = pino(pino.destination('logs.txt'));
-  process.on('uncaughtException', (err) => {
-    state.logger.error(err);
-  });
+  const version = 'v0.9.0';
+  state.logger = pino({ mixin() { return { version }; } }, pino.destination('logs.txt'));
+  const autoSaver = setInterval(utils.storage.save, 5 * 60 * 1000);
+  ['SIGINT', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async (err) => {
+    clearInterval(autoSaver);
+    if (err) state.logger.error(err);
+    state.logger.info('Exiting!');
+    await utils.storage.save();
+    process.exit();
+  }));
 
   state.logger.info('Starting');
 
-  await utils.checkVersion('v0.8.2');
+  await utils.updater.run(version);
   state.logger.info('Update checked.');
 
-  await storage.initializeDB();
-  state.logger.info('Initialized database.');
+  await utils.storage.syncTable();
+  state.logger.info('Synced table.');
 
-  state.settings = await utils.parseSettings();
+  state.settings = await utils.storage.parseSettings();
   state.logger.info('Loaded settings.');
 
-  state.contacts = await utils.parseContacts();
+  state.contacts = await utils.storage.parseContacts();
   state.logger.info('Loaded contacts.');
 
-  state.chats = await utils.parseChats();
+  state.chats = await utils.storage.parseChats();
   state.logger.info('Loaded chats.');
 
-  state.dcClient = await discordManager.start();
+  state.dcClient = await discordHandler.start();
   state.logger.info('Discord client started.');
 
-  await discordUtils.repairChannels();
-  await discordManager.updateControlChannel();
+  await utils.discord.repairChannels();
+  await discordHandler.setControlChannel();
   state.logger.info('Repaired channels.');
 
-  await whatsappManager.start();
+  await whatsappHandler.start();
   state.logger.info('WhatsApp client started.');
 
   console.log('Bot is now running. Press CTRL-C to exit.');
-
-  ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async () => {
-    state.logger.info('Exiting!');
-    await utils.save();
-    process.exit();
-  }));
 })();

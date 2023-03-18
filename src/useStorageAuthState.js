@@ -1,8 +1,9 @@
 /* eslint-disable */
-const { initAuthCreds } = require('@adiwajshing/baileys');
-const WAProto_1 = require('@adiwajshing/baileys/WAProto');
-const generics_1 = require('@adiwajshing/baileys/lib/Utils/generics');
-const storage = require('./storage_manager');
+import { initAuthCreds } from "@adiwajshing/baileys"
+import WAProto_1 from "@adiwajshing/baileys/WAProto/index.js"
+import generics_1 from "@adiwajshing/baileys/lib/Utils/generics.js"
+import { storage } from "./utils.js"
+
 
 const dbAuthName = 'baileyAuth';
 const KEY_MAP = {
@@ -14,7 +15,7 @@ const KEY_MAP = {
   'sender-key-memory': 'senderKeyMemory',
 };
 
-module.exports = async (newSession) => {
+export default async (newSession) => {
   let creds;
   let keys = {};
 
@@ -41,7 +42,7 @@ module.exports = async (newSession) => {
             let value = (_a = keys[key]) === null || _a === void 0 ? void 0 : _a[id];
             if (value) {
               if (type === 'app-state-sync-key') {
-                value = WAProto_1.proto.AppStateSyncKeyData.fromObject(value);
+                value = WAProto_1.proto.Message.AppStateSyncKeyData.fromObject(value);
               }
               dict[id] = value;
             }

@@ -1,31 +1,39 @@
-const getGuild = async () => module.exports.dcClient.guilds.fetch(module.exports.settings.GuildID).catch(() => null);
-const getControlChannel = async () => module.exports.dcClient.channels.fetch(module.exports.settings.ControlChannelID).catch(() => null);
+const bidirectionalMapWithCapacity = (capacity) => {
+  const keys = [];
+  return new Proxy(
+    {},
+    {
+      set(target, prop, newVal) {
+        keys.push(prop, newVal);
+        if (keys.length > capacity) {
+          delete target[keys.shift()];
+          delete target[keys.shift()];
+        }
+        target[prop] = newVal;
+        target[newVal] = prop;
+        return true;
+      },
+    },
+  );
+};
 
-module.exports = {
-  settings: {},
+export default {
+  settings: {
+    Whitelist: [],
+    DiscordPrefix: false,
+    WAGroupPrefix: false,
+    UploadAttachments: true,
+    Token: '',
+    GuildID: '',
+    Categories: [],
+    ControlChannelID: '',
+  },
   dcClient: null,
   waClient: null,
   chats: {},
   contacts: {},
   startTime: Math.round(Date.now() / 1000),
   logger: null,
-  lastMessages: (() => {
-    const messageIds = [];
-    return new Proxy(
-      {},
-      {
-        set(target, prop, newVal) {
-          messageIds.push(prop);
-          if (messageIds.length > 100) {
-            delete module.exports.lastMessages[messageIds.shift()];
-          }
-          // eslint-disable-next-line no-param-reassign
-          target[prop] = newVal;
-        },
-      },
-    );
-  })(),
-
-  getGuild,
-  getControlChannel,
+  lastMessages: bidirectionalMapWithCapacity(1000),
+  goccRuns: {},
 };
