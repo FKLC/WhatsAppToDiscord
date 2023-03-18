@@ -17,7 +17,7 @@ const bidirectionalMapWithCapacity = (capacity) => {
   );
 };
 
-export default {
+module.exports = {
   settings: {
     Whitelist: [],
     DiscordPrefix: false,

@@ -1,6 +1,6 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
-import utils from './utils.js';
-import state from './state.js';
+const { Client, Events, GatewayIntentBits } =  require('discord.js');
+const state =  require('./state.js');
+const utils =  require('./utils.js');
 
 const client = new Client({
   intents: [
@@ -266,7 +266,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: true });
 });
 
-export default {
+module.exports = {
   start: async () => {
     await client.login(state.settings.Token);
     return client;

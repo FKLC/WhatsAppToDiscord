@@ -1,8 +1,8 @@
 /* eslint-disable */
-import { initAuthCreds } from "@adiwajshing/baileys"
-import WAProto_1 from "@adiwajshing/baileys/WAProto/index.js"
-import generics_1 from "@adiwajshing/baileys/lib/Utils/generics.js"
-import { storage } from "./utils.js"
+const initAuthCreds =  require("@adiwajshing/baileys").initAuthCreds;
+const WAProto_1 =  require("@adiwajshing/baileys/WAProto/index.js");
+const generics_1 =  require("@adiwajshing/baileys/lib/Utils/generics.js");
+const storage =  require("./storage.js");
 
 
 const dbAuthName = 'baileyAuth';
@@ -15,7 +15,7 @@ const KEY_MAP = {
   'sender-key-memory': 'senderKeyMemory',
 };
 
-export default async (newSession) => {
+module.exports = async (newSession) => {
   let creds;
   let keys = {};
 

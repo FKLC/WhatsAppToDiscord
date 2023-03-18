@@ -1,20 +1,17 @@
-import {
-  Client, GatewayIntentBits, Webhook, AttachmentBuilder, ChannelType,
-} from 'discord.js';
-import { downloadMediaMessage } from '@adiwajshing/baileys';
-import stream from 'stream/promises';
-import sequelize from 'sequelize';
-import readline from 'readline';
-import fetch from 'node-fetch';
-import QRCode from 'qrcode';
-import crypto from 'crypto';
-import * as fs from 'fs';
-import os from 'os';
+const { Webhook, AttachmentBuilder, ChannelType } =  require('discord.js');
+const { downloadMediaMessage } =  require('@adiwajshing/baileys');
+const stream =  require('stream/promises');
 
-import useStorageAuthState from './useStorageAuthState.js';
-import state from './state.js';
+const readline = require('readline');
+const QRCode = require('qrcode');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const useStorageAuthState = require('./useStorageAuthState.js');
+const state = require('./state.js');
+  
 
-export const updater = {
+const updater = {
   isNode: process.argv0.replace('.exe', '').endsWith('node'),
 
   currentExeName: process.argv0.split(/[/\\]/).pop(),
@@ -145,86 +142,7 @@ export const updater = {
         + '-----END PUBLIC KEY-----',
 };
 
-export const storage = {
-  _connection: null,
-  get connection() {
-    if (this._connection) return this._connection;
-    this._connection = new sequelize.Sequelize('sqlite://storage.db', {
-      logging: false,
-      define: {
-        timestamps: false,
-        freezeTableName: true,
-      },
-    });
-    return this._connection;
-  },
-
-  _table: null,
-  get table() {
-    if (this._table) return this._table;
-    this._table = this.connection.define('WA2DC', {
-      name: {
-        type: sequelize.STRING,
-        primaryKey: true,
-      },
-      data: sequelize.TEXT,
-    });
-    return this._table;
-  },
-
-  async syncTable() {
-    await this.table.sync();
-  },
-
-  async upsert(name, data) {
-    await this.table.upsert({ name, data });
-  },
-
-  async get(name) {
-    const result = await this.table.findOne({ where: { name } });
-    return result == null ? null : result.get('data');
-  },
-
-  _settingsName: 'settings',
-  _defaultSettings: {
-    Whitelist: [],
-    DiscordPrefix: false,
-    WAGroupPrefix: false,
-    UploadAttachments: true,
-  },
-  async parseSettings() {
-    const result = await this.get(this._settingsName);
-    if (result == null) {
-      return setup.firstRun();
-    }
-
-    try {
-      const settings = Object.assign(this._defaultSettings, JSON.parse(result));
-      if (settings.Token === '') return setup.firstRun();
-      return settings;
-    } catch (err) {
-      return setup.firstRun();
-    }
-  },
-
-  _chatsName: 'chats',
-  async parseChats() {
-    const result = await this.get(this._chatsName);
-    return result ? JSON.parse(result) : {};
-  },
-
-  _contactsName: 'contacts',
-  async parseContacts() {
-    const result = await this.get(this._contactsName);
-    return result ? JSON.parse(result) : {};
-  },
-
-  async save() {
-    for (const field of [this._settingsName, this._chatsName, this._contactsName]) { await this.upsert(field, JSON.stringify(state[field])); }
-  },
-};
-
-export const discord = {
+const discord = {
   channelIdToJid(channelId) {
     return Object.keys(state.chats).find((key) => state.chats[key].channelId === channelId);
   },
@@ -335,7 +253,7 @@ export const discord = {
   },
 };
 
-export const whatsapp = {
+const whatsapp = {
   jidToPhone(jid) {
     return jid.split(':')[0].split('@')[0];
   },
@@ -547,43 +465,6 @@ const ui = {
   },
 };
 
-const setup = {
-  async setupDiscordChannels(token) {
-    return new Promise((resolve) => {
-      const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-      client.once('ready', () => {
-        console.log(`Invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=536879120`);
-      });
-      client.once('guildCreate', async (guild) => {
-        const category = await guild.channels.create({
-          name: 'whatsapp',
-          type: ChannelType.GuildCategory,
-        });
-        const controlChannel = await guild.channels.create({
-          name: 'control-room',
-          type: ChannelType.GuildText,
-          parent: category,
-        });
-        client.destroy();
-        resolve({
-          GuildID: guild.id,
-          Categories: [category.id],
-          ControlChannelID: controlChannel.id,
-        });
-      });
-      client.login(token);
-    });
-  },
-
-  async firstRun() {
-    const settings = storage._defaultSettings;
-    console.log('It seems like this is your first run.');
-    settings.Token = await ui.input('Please enter your bot token: ');
-    Object.assign(settings, await this.setupDiscordChannels(settings.Token));
-    return settings;
-  },
-};
-
-export default {
-  updater, storage, discord, whatsapp,
+module.exports = {
+  updater, discord, whatsapp,
 };

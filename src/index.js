@@ -1,19 +1,20 @@
-import pino from 'pino';
+const pino =  require('pino');
 
-import state from './state.js';
-import utils from './utils.js';
-import discordHandler from './discordHandler.js';
-import whatsappHandler from './whatsappHandler.js';
+const discordHandler =  require('./discordHandler.js');
+const state =  require('./state.js');
+const utils =  require('./utils.js');
+const storage = require('./storage.js');
+const whatsappHandler =  require('./whatsappHandler.js');
 
 (async () => {
-  const version = 'v0.9.1';
+  const version = 'v0.9.0';
   state.logger = pino({ mixin() { return { version }; } }, pino.destination('logs.txt'));
-  const autoSaver = setInterval(utils.storage.save, 5 * 60 * 1000);
+  const autoSaver = setInterval(storage.save, 5 * 60 * 1000);
   ['SIGINT', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async (err) => {
     clearInterval(autoSaver);
     if (err) state.logger.error(err);
     state.logger.info('Exiting!');
-    await utils.storage.save();
+    await storage.save();
     process.exit();
   }));
 
@@ -22,16 +23,16 @@ import whatsappHandler from './whatsappHandler.js';
   await utils.updater.run(version);
   state.logger.info('Update checked.');
 
-  await utils.storage.syncTable();
+  await storage.syncTable();
   state.logger.info('Synced table.');
 
-  state.settings = await utils.storage.parseSettings();
+  state.settings = await storage.parseSettings();
   state.logger.info('Loaded settings.');
 
-  state.contacts = await utils.storage.parseContacts();
+  state.contacts = await storage.parseContacts();
   state.logger.info('Loaded contacts.');
 
-  state.chats = await utils.storage.parseChats();
+  state.chats = await storage.parseChats();
   state.logger.info('Loaded chats.');
 
   state.dcClient = await discordHandler.start();

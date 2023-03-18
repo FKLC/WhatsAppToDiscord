@@ -1,6 +1,6 @@
-import makeWASocket, { fetchLatestBaileysVersion } from '@adiwajshing/baileys'
-import utils from './utils.js';
-import state from "./state.js"
+const baileys = require('@adiwajshing/baileys');
+const utils = require('./utils.js');
+const state = require("./state.js");
 
 
 let authState;
@@ -8,9 +8,9 @@ let saveState;
 
 const connectToWhatsApp = async (retry = 1) => {
     const controlChannel = await utils.discord.getControlChannel();
-    const { version } = await fetchLatestBaileysVersion();
+    const { version } = await baileys.fetchLatestBaileysVersion();
 
-    const client = makeWASocket.default({
+    const client = baileys.default({
         version,
         printQRInTerminal: false,
         auth: authState,
@@ -145,4 +145,4 @@ const actions = {
     },
 }
 
-export default actions;
+module.exports = actions;
