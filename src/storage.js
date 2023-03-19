@@ -79,7 +79,9 @@ const storage = {
   },
 
   async save() {
-    for (const field of [this._settingsName, this._chatsName, this._contactsName]) { await this.upsert(field, JSON.stringify(state[field])); }
+    for await (const field of [this._settingsName, this._chatsName, this._contactsName]) {
+      await this.upsert(field, JSON.stringify(state[field]));
+    }
   },
 };
 
