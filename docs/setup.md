@@ -6,12 +6,12 @@ Please don't get worried about the number of steps listed here. We wanted to be 
   <summary>Show photo</summary>
   <img src="_media/1.jpg" alt="Image showing which version to download" />
 </details>
-1. As the bot will create some files, create a new folder in a directory you wish to prevent cluttering. Then, move the downloaded file to that folder.
+1. The bot will create some files, so to prevent cluttering, create a new folder. Then, move the downloaded file to that folder.
 <details>
   <summary>Show photo</summary>
   <img src="_media/2.jpg" alt="Image showing folder with WA2DC in it" />
 </details>
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications/), so that we can create a new bot.
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications/).
 <details>
   <summary>Show photo</summary>
   <img src="_media/3.jpg" alt="Image showing Discord Developer Portal" />

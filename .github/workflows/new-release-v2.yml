@@ -27,11 +27,11 @@ jobs:
       - name: Package into node binary
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-              ./node_modules/.bin/pkg . -t latest-linux-x64 -o build/WA2DC-$RUNNER_OS
+              ./node_modules/.bin/pkg . -t latest-linux-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
           elif [ "$RUNNER_OS" == "macOS" ]; then
-              ./node_modules/.bin/pkg . -t latest-macos-x64 -o build/WA2DC-$RUNNER_OS
+              ./node_modules/.bin/pkg . -t latest-macos-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
           elif [ "$RUNNER_OS" == "Windows" ]; then
-              ./node_modules/.bin/pkg . -t latest-win-x64 -o build/WA2DC-$RUNNER_OS
+              ./node_modules/.bin/pkg . -t latest-win-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
           else
               echo "$RUNNER_OS not supported"
               exit 1
