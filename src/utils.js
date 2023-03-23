@@ -252,11 +252,21 @@ const discord = {
   getSaveLocation(fileName) {
     return path.resolve(state.settings.DownloadDir, fileName);
   },
+  async findAvailableName(dir, fileName) {
+    let absPath;
+    let parsedFName = path.parse(fileName);
+    let counter = -1;
+    do {
+      absPath = path.resolve(dir, parsedFName.name + (counter === -1 ? "" : counter) + parsedFName.ext);
+      counter++;
+    } while (await fs.promises.stat(absPath).catch(() => false));
+    return [absPath, parsedFName.name + (counter === -1 ? "" : counter) + parsedFName.ext];
+  },
   async downloadLargeFile(file) {
     await fs.promises.mkdir(state.settings.DownloadDir, { recursive: true });
-    const absPath = path.resolve(state.settings.DownloadDir, path.basename(file.name));
+    const [absPath, fileName] = await this.findAvailableName(state.settings.DownloadDir, file.name);
     await fs.promises.writeFile(absPath, file.attachment);
-    return this.formatDownloadMessage(absPath, path.resolve(state.settings.DownloadDir), path.basename(file.name));
+    return this.formatDownloadMessage(absPath, path.resolve(state.settings.DownloadDir), fileName);
   },
   formatDownloadMessage(absPath, resolvedDownloadDir, fileName) {
     return state.settings.LocalDownloadMessage
