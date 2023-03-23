@@ -87,6 +87,31 @@ client.on('whatsappReaction', async (reaction) => {
   await message.react(reaction.text);
 });
 
+client.on('whatsappCall', async ({ call, jid }) => {
+  const webhook = await utils.discord.getOrCreateChannel(jid);
+
+  const name = utils.whatsapp.jidToName(jid);
+  const callType = call.isVideo ? 'video' : 'voice';
+  let content = '';
+
+  switch (call.status) {
+    case 'offer':
+      content = `${name} is ${callType} calling you! Check your phone to respond.`
+      break;
+    case 'timeout':
+      content = `Missed a ${callType} call from ${name}!`
+      break;
+  }
+
+  if (content !== '') {
+    await webhook.send({
+      content,
+      username: name,
+      avatarURL: await utils.whatsapp.getProfilePic(call),
+    });
+  }
+});
+
 const commands = {
   async ping(message) {
     controlChannel.send(`Pong ${Date.now() - message.createdTimestamp}ms!`);

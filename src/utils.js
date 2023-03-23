@@ -304,11 +304,11 @@ const whatsapp = {
       .send({ files: [new MessageAttachment(await QRCode.toBuffer(qrString), 'qrcode.png')] });
   },
   getChannelJid(rawMsg) {
-    return this.formatJid(rawMsg.key.remoteJid);
+    return this.formatJid(rawMsg?.key?.remoteJid || rawMsg.chatId);
   },
   getSenderJid(rawMsg, fromMe) {
     if (fromMe) { return this.formatJid(state.waClient.user.id); }
-    return this.formatJid(rawMsg.key.participant || rawMsg.key.remoteJid);
+    return this.formatJid(rawMsg?.key?.participant || rawMsg?.key?.remoteJid || rawMsg?.chatId || rawMsg?.jid);
   },
   getSenderName(rawMsg) {
     return this.jidToName(this.getSenderJid(rawMsg, rawMsg.key.fromMe), rawMsg.pushName);
@@ -360,10 +360,10 @@ const whatsapp = {
     };
   },
   inWhitelist(rawMsg) {
-    return state.settings.Whitelist.length === 0 || state.settings.Whitelist.includes(rawMsg.key.remoteJid);
+    return state.settings.Whitelist.length === 0 || state.settings.Whitelist.includes(rawMsg?.key?.remoteJid || rawMsg.chatId);
   },
   sentAfterStart(rawMsg) {
-    return (rawMsg.messageTimestamp || rawMsg.reaction.senderTimestampMs) > state.startTime;
+    return (rawMsg?.messageTimestamp || rawMsg?.reaction?.senderTimestampMs || rawMsg?.date?.getTime() / 1000) > state.startTime;
   },
   getMessageType(rawMsg) {
     return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));

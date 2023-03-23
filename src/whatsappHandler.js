@@ -87,6 +87,18 @@ const connectToWhatsApp = async (retry = 1) => {
         }
     });
 
+    client.ev.on('call', async (calls) => {
+        for await (const call of calls) {
+            if (!utils.whatsapp.inWhitelist(call) || !utils.whatsapp.sentAfterStart(call))
+                return;
+
+            state.dcClient.emit('whatsappCall', {
+                jid: utils.whatsapp.getChannelJid(call),
+                call,
+            });
+        }
+    });
+
     client.ev.on('discordMessage', async ({ jid, message }) => {
         const content = {};
         const options = {};
