@@ -1,13 +1,13 @@
-const { Client, Events, GatewayIntentBits } = require('discord.js');
+const { Client, Intents } = require('discord.js');
 const state = require('./state.js');
 const utils = require('./utils.js');
 
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.MessageContent,
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+    Intents.FLAGS.MESSAGE_CONTENT,
   ],
 });
 let controlChannel;
@@ -236,7 +236,7 @@ const commands = {
   },
 };
 
-client.on(Events.MessageCreate, async (message) => {
+client.on('messageCreate', async (message) => {
   if (message.author === client.user || message.webhookId != null) {
     return;
   }
@@ -255,7 +255,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-client.on(Events.MessageReactionAdd, async (reaction, user) => {
+client.on('messageReactionAdd', async (reaction, user) => {
   if (!state.settings.Categories.includes(reaction.message.channel?.parent?.id)) return;
   const messageId = state.lastMessages[reaction.message.id];
   if (messageId == null) {

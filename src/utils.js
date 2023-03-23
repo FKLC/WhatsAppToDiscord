@@ -1,4 +1,4 @@
-const { Webhook, AttachmentBuilder, ChannelType } = require('discord.js');
+const { Webhook, MessageAttachment } = require('discord.js');
 const { downloadMediaMessage } = require('@adiwajshing/baileys');
 
 const readline = require('readline');
@@ -161,7 +161,7 @@ const discord = {
     if (state.settings.Categories[nthCategory] == null) {
       state.settings.Categories.push((await (await this.getGuild()).channels.create({
         name: `whatsapp ${nthCategory + 1}`,
-        type: ChannelType.GuildCategory,
+        type: 'GUILD_CATEGORY',
       })).id);
     }
     return state.settings.Categories[nthCategory];
@@ -169,7 +169,7 @@ const discord = {
   async createChannel(name) {
     return (await this.getGuild()).channels.create({
       name,
-      type: ChannelType.GuildText,
+      type: 'GUILD_TEXT',
       parent: await this.getCategory(Object.keys(state.chats).length + this._unfinishedGoccCalls),
     });
   },
@@ -219,7 +219,7 @@ const discord = {
       state.settings.Categories[0] = (
         await guild.channels.create({
           name: 'whatsapp',
-          type: ChannelType.GuildCategory,
+          type: 'GUILD_CATEGORY',
         })
       ).id;
     }
@@ -294,7 +294,7 @@ const whatsapp = {
   },
   async sendQR(qrString) {
     await (await discord.getControlChannel())
-      .send({ files: [new AttachmentBuilder(await QRCode.toBuffer(qrString), { name: 'qrcode.png' })] });
+      .send({ files: [new MessageAttachment(await QRCode.toBuffer(qrString), 'qrcode.png')] });
   },
   getChannelJid(rawMsg) {
     return this.formatJid(rawMsg.key.remoteJid);

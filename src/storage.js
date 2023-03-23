@@ -1,7 +1,7 @@
 const sequelize = require('sequelize');
 const readline = require('readline');
 const state = require('./state.js');
-const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
+const { Client, Intents } = require('discord.js');
 
 
 const storage = {
@@ -82,18 +82,18 @@ const storage = {
 const setup = {
   async setupDiscordChannels(token) {
     return new Promise((resolve) => {
-      const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+      const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
       client.once('ready', () => {
         console.log(`Invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=536879120`);
       });
       client.once('guildCreate', async (guild) => {
         const category = await guild.channels.create({
           name: 'whatsapp',
-          type: ChannelType.GuildCategory,
+          type: 'GUILD_CATEGORY',
         });
         const controlChannel = await guild.channels.create({
           name: 'control-room',
-          type: ChannelType.GuildText,
+          type: 'GUILD_TEXT',
           parent: category,
         });
         client.destroy();
