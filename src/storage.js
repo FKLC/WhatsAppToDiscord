@@ -87,12 +87,10 @@ const setup = {
         console.log(`Invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=536879120`);
       });
       client.once('guildCreate', async (guild) => {
-        const category = await guild.channels.create({
-          name: 'whatsapp',
+        const category = await guild.channels.create('whatsapp', {
           type: 'GUILD_CATEGORY',
         });
-        const controlChannel = await guild.channels.create({
-          name: 'control-room',
+        const controlChannel = await guild.channels.create('control-room', {
           type: 'GUILD_TEXT',
           parent: category,
         });

@@ -159,16 +159,14 @@ const discord = {
   async getCategory(nthChannel) {
     const nthCategory = Math.floor((nthChannel + 1) / 50);
     if (state.settings.Categories[nthCategory] == null) {
-      state.settings.Categories.push((await (await this.getGuild()).channels.create({
-        name: `whatsapp ${nthCategory + 1}`,
+      state.settings.Categories.push((await (await this.getGuild()).channels.create(`whatsapp ${nthCategory + 1}`, {
         type: 'GUILD_CATEGORY',
       })).id);
     }
     return state.settings.Categories[nthCategory];
   },
   async createChannel(name) {
-    return (await this.getGuild()).channels.create({
-      name,
+    return (await this.getGuild()).channels.create(name, {
       type: 'GUILD_TEXT',
       parent: await this.getCategory(Object.keys(state.chats).length + this._unfinishedGoccCalls),
     });
@@ -194,7 +192,7 @@ const discord = {
       }
       throw err;
     });
-    const webhook = await channel.createWebhook({ name: 'WA2DC' });
+    const webhook = await channel.createWebhook('WA2DC');
     state.chats[jid] = {
       id: webhook.id,
       type: webhook.type,
@@ -217,8 +215,7 @@ const discord = {
 
     if (!categoryExists) {
       state.settings.Categories[0] = (
-        await guild.channels.create({
-          name: 'whatsapp',
+        await guild.channels.create('whatsapp', {
           type: 'GUILD_CATEGORY',
         })
       ).id;
