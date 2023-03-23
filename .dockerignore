@@ -1,8 +1,8 @@
 node_modules/
-logs.txt
-storage.db
 downloads/
 *.exe
 *.oldVersion
 build/
 *.bat
+docs/
+.github/

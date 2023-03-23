@@ -1,15 +1,16 @@
-const { Webhook, AttachmentBuilder, ChannelType } =  require('discord.js');
-const { downloadMediaMessage } =  require('@adiwajshing/baileys');
-const stream =  require('stream/promises');
+const { Webhook, AttachmentBuilder, ChannelType } = require('discord.js');
+const { downloadMediaMessage } = require('@adiwajshing/baileys');
 
 const readline = require('readline');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
+const path = require('path');
+const stream = require('stream/promises');
 const useStorageAuthState = require('./useStorageAuthState.js');
 const state = require('./state.js');
-  
+
 
 const updater = {
   isNode: process.argv0.replace('.exe', '').endsWith('node'),
@@ -132,14 +133,14 @@ const updater = {
   },
 
   publicKey: '-----BEGIN PUBLIC KEY-----\n'
-        + 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArwZEUsgdgeAmr5whnpsO\n'
-        + 'hvdp222eepTpxp23GmrOdXHnSDitSaU8St9ViKDUOlEWOx+61Y3DpBetycgFcawz\n'
-        + 'bKFxm2UNwMqW/8sg/cvh8BGJ2IGor8etC6KRUclDLvtzCl8j95S9tIzBBheVRLx9\n'
-        + '+RtLNyzZBzn9GTZXdlO368u34fHrCYwoEFJfTXbEb2LnlbMGyjo4C/We6xWmRVEz\n'
-        + 'XoygOglAgJYuQjpCfjUhfcP/bOh/mLOgpX0kuJzp/0dSMx4qvJhBPe7fGXesGJQ9\n'
-        + 'x+cgcRR8fzN9gowrhltAb73PFYECiOYFYQS8bHMJX/jcQiYKqUuQCWS/wcbkYz+s\n'
-        + 'OwIDAQAB\n'
-        + '-----END PUBLIC KEY-----',
+    + 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArwZEUsgdgeAmr5whnpsO\n'
+    + 'hvdp222eepTpxp23GmrOdXHnSDitSaU8St9ViKDUOlEWOx+61Y3DpBetycgFcawz\n'
+    + 'bKFxm2UNwMqW/8sg/cvh8BGJ2IGor8etC6KRUclDLvtzCl8j95S9tIzBBheVRLx9\n'
+    + '+RtLNyzZBzn9GTZXdlO368u34fHrCYwoEFJfTXbEb2LnlbMGyjo4C/We6xWmRVEz\n'
+    + 'XoygOglAgJYuQjpCfjUhfcP/bOh/mLOgpX0kuJzp/0dSMx4qvJhBPe7fGXesGJQ9\n'
+    + 'x+cgcRR8fzN9gowrhltAb73PFYECiOYFYQS8bHMJX/jcQiYKqUuQCWS/wcbkYz+s\n'
+    + 'OwIDAQAB\n'
+    + '-----END PUBLIC KEY-----',
 };
 
 const discord = {
@@ -150,10 +151,10 @@ const discord = {
     return text.match(/(.|[\r\n]){1,2000}/g) || [];
   },
   async getGuild() {
-    return state.dcClient.guilds.fetch(state.settings.GuildID).catch(() => null);
+    return state.dcClient.guilds.fetch(state.settings.GuildID).catch((err) => { state.logger?.error(err) });
   },
   async getChannel(channelID) {
-    return (await this.getGuild()).channels.fetch(channelID).catch(() => null);
+    return (await this.getGuild()).channels.fetch(channelID).catch((err) => { state.logger?.error(err) });
   },
   async getCategory(nthChannel) {
     const nthCategory = Math.floor((nthChannel + 1) / 50);
@@ -251,6 +252,22 @@ const discord = {
   async getControlChannel() {
     return this.getChannel(state.settings.ControlChannelID);
   },
+  getSaveLocation(fileName) {
+    return path.resolve(state.settings.downloadDir, fileName);
+  },
+  async downloadLargeFile(file) {
+    await fs.promises.mkdir(state.settings.downloadDir, { recursive: true });
+    const absPath = path.resolve(state.settings.downloadDir, path.basename(file.name));
+    await fs.promises.writeFile(absPath, file.attachment);
+    return this.formatDownloadMessage(absPath, path.resolve(state.settings.downloadDir), path.basename(file.name));
+  },
+  formatDownloadMessage(absPath, resolvedDownloadDir, fileName) {
+    return state.settings.localDownloadMessage
+      .replaceAll("{abs}", absPath)
+      .replaceAll("{resolvedDownloadDir}", resolvedDownloadDir)
+      .replaceAll("{downloadDir}", state.settings.downloadDir)
+      .replaceAll("{fileName}", fileName)
+  }
 };
 
 const whatsapp = {
@@ -308,26 +325,31 @@ const whatsapp = {
   },
   getMessage(rawMsg, msgType) {
     if (msgType === 'documentWithCaptionMessage') {
-      return rawMsg.message[msgType].message.documentMessage;
+      return ["documentMessage", rawMsg.message[msgType].message.documentMessage];
     }
-    return rawMsg.message[msgType];
+    else if (msgType === 'viewOnceMessageV2') {
+      const nMsgType = this.getMessageType(rawMsg.message[msgType]);
+      return [nMsgType, rawMsg.message[msgType].message[nMsgType]];
+    }
+    return [msgType, rawMsg.message[msgType]];
   },
   getFilename(msg, msgType) {
     if (msgType === 'audioMessage') {
       return 'audio.ogg';
     }
-    if (['documentWithCaptionMessage', 'documentMessage'].includes(msgType)) {
+    else if ('documentMessage' === msgType) {
       return msg.fileName;
     }
     return `${msgType}.${msg.mimetype.split('/')[1]}`;
   },
   async getFile(rawMsg, msgType) {
-    const msg = this.getMessage(rawMsg, msgType);
+    const [nMsgType, msg] = this.getMessage(rawMsg, msgType);
     if (msg.fileLength == null) return;
-    if (msg.fileLength.low > 8388284) return -1;
+    if (msg.fileLength.low > 8388284 && !state.settings.localDownloads) return -1;
     return {
-      name: this.getFilename(msg, msgType),
+      name: this.getFilename(msg, nMsgType),
       attachment: await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: state.logger, reuploadRequest: state.waClient.updateMediaMessage }),
+      largeFile: msg.fileLength.low > 8388284,
     };
   },
   inWhitelist(rawMsg) {
@@ -337,7 +359,7 @@ const whatsapp = {
     return (rawMsg.messageTimestamp || rawMsg.reaction.senderTimestampMs) > state.startTime;
   },
   getMessageType(rawMsg) {
-    return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'stickerMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
+    return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
   },
   _profilePicsCache: {},
   async getProfilePic(rawMsg) {
@@ -354,22 +376,28 @@ const whatsapp = {
   getId(rawMsg) {
     return rawMsg.key.id;
   },
-  getContent(msg, msgType) {
-    switch (msgType) {
+  getContent(msg, nMsgType, msgType) {
+    let content = '';
+    if (msgType === 'viewOnceMessageV2') {
+      content += 'View once message:\n';
+    }
+    switch (nMsgType) {
       case 'conversation':
-        return msg;
+        content += msg;
+        break;
       case 'extendedTextMessage':
-        return msg.text;
+        content += msg.text;
+        break;
       case 'imageMessage':
       case 'videoMessage':
       case 'audioMessage':
       case 'documentMessage':
       case 'documentWithCaptionMessage':
       case 'stickerMessage':
-        return msg.caption || '';
-      default:
-        return '';
+        content += msg.caption || '';
+        break;
     }
+    return content;
   },
   updateContacts(rawContacts) {
     const contacts = rawContacts.chats || rawContacts.contacts || rawContacts;

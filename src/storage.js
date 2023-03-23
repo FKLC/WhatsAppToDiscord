@@ -45,12 +45,6 @@ const storage = {
   },
 
   _settingsName: 'settings',
-  _defaultSettings: {
-    Whitelist: [],
-    DiscordPrefix: false,
-    WAGroupPrefix: false,
-    UploadAttachments: true,
-  },
   async parseSettings() {
     const result = await this.get(this._settingsName);
     if (result == null) {
@@ -58,7 +52,7 @@ const storage = {
     }
 
     try {
-      const settings = Object.assign(this._defaultSettings, JSON.parse(result));
+      const settings = Object.assign(state.settings, JSON.parse(result));
       if (settings.Token === '') return setup.firstRun();
       return settings;
     } catch (err) {
@@ -114,7 +108,7 @@ const setup = {
   },
 
   async firstRun() {
-    const settings = storage._defaultSettings;
+    const settings = state.settings;
     console.log('It seems like this is your first run.');
     const input = async (query) => {
       return new Promise((resolve) => {
@@ -128,7 +122,7 @@ const setup = {
         });
       });
     };
-    settings.Token = await input('Please enter your bot token: ');
+    settings.Token = process.env.WA2DC_TOKEN || await input('Please enter your bot token: ');
     Object.assign(settings, await this.setupDiscordChannels(settings.Token));
     return settings;
   },

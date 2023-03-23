@@ -59,7 +59,40 @@ When enabled (disabled by default), WhatsApp names will be added to messages sen
 When disabled (disabled by default), WhatsApp names won't be added to messages sent to Discord from WhatsApp. (Note that the bot already sends messages by WhatsApp names anyway. This is an accessibility option)
 - Format: `disableWAPrefix`
 
+## enableLocalDownloads
+When enabled, the bot downloads files larger than 8MB to your download location. See `getDownloadDir` for your download location.
+- Format: `enableLocalDownloads`
+
+## disableLocalDownloads
+When enabled, the bot notifies you about receiving a file larger than 8MB.
+- Format: `disableLocalDownloads`
+
+## getDownloadMessage
+Prints out the download message. This message is printed when you receive a file larger than 8MB and it is downloaded.
+- Format: `getDownloadMessage`
+- Default: *"Downloaded a file larger than 8MB, check it out at {abs}"*
+
+## setDownloadMessage
+Prints out the download message. This message is printed when you receive a file larger than 8MB and it is downloaded. There are keywords that you can use, `{abs}`: Downloaded file's absolute path, `{resolvedDownloadDir}`: Download directory's resolved path, `{downloadDir}`: unedited download directory, `{fileName}`: Downloaded file's name.
+- Format: `setDownloadMessage <your message here>`
+- Examples:
+    - `setDownloadMessage Received a file. The file name is {fileName}`
+    - `setDownloadMessage Received a file. Download it from local file server http://localhost:8080/WA2DC/{fileName}`: Note that files aren't hosted by the bot, you'll have to do it yourself if you have such a need.
+    - `setDownloadMessage Received a file. Information: Absolute path: {abs}, Resolved download directory: {resolvedDownloadDir}, Download directory: {downloadDir}, Filename: {fileName}`
+
+## getDownloadDir
+Prints out the download directory.
+- Format: `getDownloadDir`
+- Default: `./downloads`: This means the bot will save files to the downloads folder inside bot's folder.
+
+## setDownloadDir
+Sets the download directory.
+- Format: `setDownloadDir <desired save path>`
+- Examples:
+    - `setDownloadDir C:\Users\<your username>\Downloads`: Downloads files to your usual Windows downloads folder
+    - `setDownloadDir ./downloads`: Downloads files to Downloads folder in your bot's location.
+
 ## ping
-Replies back with *"Pong <Now - Time Message Sent>"ms*. It basically shows the bot's ping with the server. An unsynced date and time on your computer may cause big or even negative ping results, however, it doesn't mean you got a negative ping or 10mins of lag, rather it is the Discord's time and your computer's time difference plus your ping.
+Replies back with *"Pong <Now - Time Message Sent>"ms*. It basically shows the bot's ping with the server. An unsynced date and time on your computer may cause big or even negative ping results, however, it doesn't mean you got negative ping or 10mins of lag, rather it is the Discord's time and your computer's time difference plus your ping.
 - Format: `ping`
 

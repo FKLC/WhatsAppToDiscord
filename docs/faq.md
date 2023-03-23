@@ -31,3 +31,6 @@ There are 3 options you can use.
 1. If you are using Discord Web (instead of the desktop client), you have 2 options. (Please note that I don't maintain any of the projects listed below)
     1. Using [@eibrahim95's extension](https://chrome.google.com/webstore/detail/discord-voice-messages/emfegmjcadbmdcmdecepfkmhnenpnfip) and chaning file names, making their extensions *"mp3"* instead of *"wav"*.
     2. Using [@magadan's extension](https://github.com/magadan/discord-voice-messages-mp3). This is a modified version [@eibrahim95's extension](https://chrome.google.com/webstore/detail/discord-voice-messages/emfegmjcadbmdcmdecepfkmhnenpnfip). It creates *"mp3"* files automatically instead of *"wav"* files, so you don't have to modify the file name every time. However, its setup is a bit longer. You have to build and install the extension using the readme file.
+
+## Is it possible to run on Docker?
+It is actually possible to run this bot in Docker. You just have to set your Discord token as an environment variable named WA2DC_TOKEN, and run Dockerfile in the repo.

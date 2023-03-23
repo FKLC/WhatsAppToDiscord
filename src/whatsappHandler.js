@@ -17,7 +17,8 @@ const connectToWhatsApp = async (retry = 1) => {
         logger: state.logger,
         markOnlineOnConnect: false,
         shouldSyncHistoryMessage: () => false,
-        generateHighQualityLinkPreview: false
+        generateHighQualityLinkPreview: false,
+        browser: [ 'WA2DC', 'Chrome', '4.0.0' ]
     });
     client.contacts = state.contacts;
 
@@ -56,11 +57,11 @@ const connectToWhatsApp = async (retry = 1) => {
                 const messageType = utils.whatsapp.getMessageType(rawMessage);
                 if (!utils.whatsapp.inWhitelist(rawMessage) || !utils.whatsapp.sentAfterStart(rawMessage) || !messageType) return;
 
-                const message = utils.whatsapp.getMessage(rawMessage, messageType);
+                const [nMsgType, message] = utils.whatsapp.getMessage(rawMessage, messageType);
                 state.dcClient.emit('whatsappMessage', {
                     id: utils.whatsapp.getId(rawMessage),
                     name: utils.whatsapp.getSenderName(rawMessage),
-                    content: utils.whatsapp.getContent(message, messageType),
+                    content: utils.whatsapp.getContent(message, nMsgType, messageType),
                     quote: utils.whatsapp.getQuote(message),
                     file: await utils.whatsapp.getFile(rawMessage, messageType),
                     profilePic: await utils.whatsapp.getProfilePic(rawMessage),
