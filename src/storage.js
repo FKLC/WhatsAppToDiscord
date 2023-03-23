@@ -1,7 +1,8 @@
 const sequelize = require('sequelize');
 const readline = require('readline');
-const state = require('./state.js');
 const { Client, Intents } = require('discord.js');
+
+const state = require('./state.js');
 
 
 const storage = {

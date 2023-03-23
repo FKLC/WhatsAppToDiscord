@@ -1,4 +1,5 @@
 const { Client, Intents } = require('discord.js');
+
 const state = require('./state.js');
 const utils = require('./utils.js');
 
@@ -43,10 +44,10 @@ client.on('whatsappMessage', async (message) => {
   }
 
   if (message.file) {
-    if (message.file.largeFile && state.settings.localDownloads) {
+    if (message.file.largeFile && state.settings.LocalDownloads) {
       msgContent += await utils.discord.downloadLargeFile(message.file);
     }
-    else if (message.file === -1 && !state.settings.localDownloads) {
+    else if (message.file === -1 && !state.settings.LocalDownloads) {
       msgContent += "WA2DC Attention: Received a file, but it's over 8MB. Check WhatsApp on your phone or enable local downloads.";
     } else {
       files.push(message.file);
@@ -63,13 +64,16 @@ client.on('whatsappMessage', async (message) => {
         avatarURL: message.profilePic,
       });
     }
-    const messageId = (await webhook.send({
+    const dcMessage = await webhook.send({
       content: msgContent.shift() || null,
       username: message.name,
       files,
       avatarURL: message.profilePic,
-    })).id;
-    state.lastMessages[messageId] = message.id;
+    });
+    if (dcMessage.channel.type === 'GUILD_NEWS' && state.settings.Publish) {
+      await dcMessage.crosspost();
+    }
+    state.lastMessages[dcMessage.id] = message.id;
   }
 });
 
@@ -210,26 +214,34 @@ const commands = {
     await controlChannel.send('Re-synced!');
   },
   async enablelocaldownloads() {
-    state.settings.localDownloads = true;
+    state.settings.LocalDownloads = true;
     await controlChannel.send(`Enabled local downloads. You can now download files larger than 8MB.`);
   },
   async disablelocaldownloads() {
-    state.settings.localDownloads = false;
+    state.settings.LocalDownloads = false;
     await controlChannel.send(`Disabled local downloads. You won't be able to download files larger than 8MB.`);
   },
   async getdownloadmessage() {
-    await controlChannel.send(`Download message format is set to "${state.settings.localDownloadMessage}"`);
+    await controlChannel.send(`Download message format is set to "${state.settings.LocalDownloadMessage}"`);
   },
   async setdownloadmessage(message) {
-    state.settings.localDownloadMessage = message.content.split(' ').slice(1).join(' ');
-    await controlChannel.send(`Set download message format to "${state.settings.localDownloadMessage}"`);
+    state.settings.LocalDownloadMessage = message.content.split(' ').slice(1).join(' ');
+    await controlChannel.send(`Set download message format to "${state.settings.LocalDownloadMessage}"`);
   },
   async getdownloaddir() {
-    await controlChannel.send(`Download path is set to "${state.settings.downloadDir}"`);
+    await controlChannel.send(`Download path is set to "${state.settings.DownloadDir}"`);
   },
   async setdownloaddir(message) {
-    state.settings.downloadDir = message.content.split(' ').slice(1).join(' ');
-    await controlChannel.send(`Set download path to "${state.settings.downloadDir}"`);
+    state.settings.DownloadDir = message.content.split(' ').slice(1).join(' ');
+    await controlChannel.send(`Set download path to "${state.settings.DownloadDir}"`);
+  },
+  async enablepublishing() {
+    state.settings.Publish = true;
+    await controlChannel.send(`Enabled publishing messages sent to news channels.`);
+  },
+  async disablepublishing() {
+    state.settings.Publish = false;
+    await controlChannel.send(`Disabled publishing messages sent to news channels.`);
   },
   async unknownCommand(message) {
     controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);

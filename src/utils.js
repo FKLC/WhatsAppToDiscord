@@ -1,6 +1,5 @@
 const { Webhook, MessageAttachment } = require('discord.js');
 const { downloadMediaMessage } = require('@adiwajshing/baileys');
-
 const readline = require('readline');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
@@ -8,6 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const stream = require('stream/promises');
+
 const useStorageAuthState = require('./useStorageAuthState.js');
 const state = require('./state.js');
 
@@ -250,19 +250,19 @@ const discord = {
     return this.getChannel(state.settings.ControlChannelID);
   },
   getSaveLocation(fileName) {
-    return path.resolve(state.settings.downloadDir, fileName);
+    return path.resolve(state.settings.DownloadDir, fileName);
   },
   async downloadLargeFile(file) {
-    await fs.promises.mkdir(state.settings.downloadDir, { recursive: true });
-    const absPath = path.resolve(state.settings.downloadDir, path.basename(file.name));
+    await fs.promises.mkdir(state.settings.DownloadDir, { recursive: true });
+    const absPath = path.resolve(state.settings.DownloadDir, path.basename(file.name));
     await fs.promises.writeFile(absPath, file.attachment);
-    return this.formatDownloadMessage(absPath, path.resolve(state.settings.downloadDir), path.basename(file.name));
+    return this.formatDownloadMessage(absPath, path.resolve(state.settings.DownloadDir), path.basename(file.name));
   },
   formatDownloadMessage(absPath, resolvedDownloadDir, fileName) {
-    return state.settings.localDownloadMessage
+    return state.settings.LocalDownloadMessage
       .replaceAll("{abs}", absPath)
       .replaceAll("{resolvedDownloadDir}", resolvedDownloadDir)
-      .replaceAll("{downloadDir}", state.settings.downloadDir)
+      .replaceAll("{downloadDir}", state.settings.DownloadDir)
       .replaceAll("{fileName}", fileName)
   }
 };
@@ -342,7 +342,7 @@ const whatsapp = {
   async getFile(rawMsg, msgType) {
     const [nMsgType, msg] = this.getMessage(rawMsg, msgType);
     if (msg.fileLength == null) return;
-    if (msg.fileLength.low > 8388284 && !state.settings.localDownloads) return -1;
+    if (msg.fileLength.low > 8388284 && !state.settings.LocalDownloads) return -1;
     return {
       name: this.getFilename(msg, nMsgType),
       attachment: await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: state.logger, reuploadRequest: state.waClient.updateMediaMessage }),

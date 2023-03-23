@@ -27,9 +27,10 @@ module.exports = {
     GuildID: '',
     Categories: [],
     ControlChannelID: '',
-    localDownloads: false,
-    localDownloadMessage: 'Downloaded a file larger than 8MB, check it out at {abs}',
-    downloadDir: './downloads'
+    LocalDownloads: false,
+    LocalDownloadMessage: 'Downloaded a file larger than 8MB, check it out at {abs}',
+    DownloadDir: './downloads',
+    Publish: false,
   },
   dcClient: null,
   waClient: null,
