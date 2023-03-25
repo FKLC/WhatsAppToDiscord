@@ -281,10 +281,9 @@ client.on('messageCreate', async (message) => {
   if (message.channel === controlChannel) {
     const command = message.content.toLowerCase().split(' ');
     await (commands[command[0]] || commands.unknownCommand)(message, command.slice(1));
-  } else if (state.settings.Categories.includes(message.channel?.parent?.id)) {
+  } else {
     const jid = utils.discord.channelIdToJid(message.channel.id);
-    if (!jid) {
-      message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
+    if (jid == null) {
       return;
     }
 
@@ -293,7 +292,10 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {
-  if (!state.settings.Categories.includes(reaction.message.channel?.parent?.id)) return;
+  const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
+  if (jid == null) {
+    return;
+  }
   const messageId = state.lastMessages[reaction.message.id];
   if (messageId == null) {
     await reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
@@ -302,16 +304,15 @@ client.on('messageReactionAdd', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
-  if (!jid) {
-    reaction.message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
-    return;
-  }
+  
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: false });
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {
-  if (!state.settings.Categories.includes(reaction.message.channel?.parent?.id)) return;
+  const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
+  if (jid == null) {
+    return;
+  }
   const messageId = state.lastMessages[reaction.message.id];
   if (messageId == null) {
     await reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
@@ -320,11 +321,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
-  if (!jid) {
-    reaction.message.channel.send("Couldn't find the user. Restart the bot, or manually delete this channel and start a new chat using the `start` command.");
-    return;
-  }
+  
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: true });
 });
 
