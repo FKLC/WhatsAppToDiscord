@@ -48,16 +48,35 @@ const updater = {
   },
 
   get defaultExeName() {
+    let name = 'WA2DC';
     switch (os.platform()) {
       case 'linux':
-        return 'WA2DC-Linux';
+        name += '-Linux';
+        break;
       case 'darwin':
-        return 'WA2DC-macOS';
+        name += '-macOS';
+        break;
       case 'win32':
-        return 'WA2DC.exe';
+        break;
       default:
         return '';
     }
+
+    switch (process.arch) {
+      case 'arm64':
+        name += '-arm64'
+        break;
+      case 'x64':
+        break;
+      default:
+        return '';
+    }
+
+    if (os.platform() === 'win32') {
+      name += '.exe';
+    }
+
+    return name;
   },
 
   async downloadLatestVersion(defaultExeName, name) {
