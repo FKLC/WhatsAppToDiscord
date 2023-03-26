@@ -6,3 +6,4 @@ downloads/
 *.oldVersion
 build/
 *.bat
+storage/

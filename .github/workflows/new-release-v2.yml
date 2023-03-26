@@ -6,11 +6,9 @@ on:
       - "v*"
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -26,16 +24,13 @@ jobs:
 
       - name: Package into node binary
         run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-              ./node_modules/.bin/pkg . -t latest-linux-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-              ./node_modules/.bin/pkg . -t latest-macos-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-              ./node_modules/.bin/pkg . -t latest-win-x64 --options no-warnings -o build/WA2DC-$RUNNER_OS
-          else
-              echo "$RUNNER_OS not supported"
-              exit 1
-          fi
+          ./node_modules/.bin/pkg . -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux
+          ./node_modules/.bin/pkg . -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS
+          ./node_modules/.bin/pkg . -t latest-win-x64 --options no-warnings -o build/WA2DC
+          ./node_modules/.bin/pkg . -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64
+          ./node_modules/.bin/pkg . -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64
+          ./node_modules/.bin/pkg . -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64
+          exit 0
         shell: bash
 
       - name: Create Signature
@@ -47,25 +42,8 @@ jobs:
           files: |
             build/**
 
-      - name: Upload binary and signature as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: WA2DC-${{ matrix.os }}
-          path: build/**
-
-  release:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: write
-    steps:
-      - name: Download complied binaries and signatures
-        uses: actions/download-artifact@v3
-        with:
-          path: builds
-
       - name: Make a draft release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: builds/**
+          files: build/**

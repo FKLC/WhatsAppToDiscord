@@ -16,9 +16,7 @@
     "discord.js": "^13.14.0",
     "pino": "^8.11.0",
     "pkg-fetch": "^3.4.2",
-    "qrcode": "^1.5.1",
-    "sequelize": "^6.29.3",
-    "sqlite3": "^5.1.6"
+    "qrcode": "^1.5.1"
   },
   "devDependencies": {
     "eslint": "^8.36.0",
@@ -27,8 +25,5 @@
     "pkg": "^5.7.0",
     "prettier": "^2.7.1"
   },
-  "bin": "src/index.js",
-  "pkg": {
-    "assets": "node_modules/sqlite3/lib/binding/**"
-  }
+  "bin": "src/index.js"
 }

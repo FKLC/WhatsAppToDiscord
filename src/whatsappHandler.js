@@ -153,8 +153,10 @@ const connectToWhatsApp = async (retry = 1) => {
 };
 
 const actions = {
-    async start(newSession = false) {
-        ({ authState, saveState } = await utils.whatsapp.useStorageAuthState(newSession));
+    async start() {
+        const baileyState = await baileys.useMultiFileAuthState('./storage/baileys');
+        authState = baileyState.state;
+        saveState = baileyState.saveCreds;
         await connectToWhatsApp();
     },
 }

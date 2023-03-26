@@ -7,8 +7,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const stream = require('stream/promises');
+const child_process = require('child_process');
 
-const useStorageAuthState = require('./useStorageAuthState.js');
 const state = require('./state.js');
 
 
@@ -60,21 +60,25 @@ const updater = {
     }
   },
 
-  async downloadLatestVersion(executableName, name) {
-    return requests.downloadFile(name, `https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${executableName}`);
+  async downloadLatestVersion(defaultExeName, name) {
+    return requests.downloadFile(name, `https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${defaultExeName}`);
   },
 
-  async validateSignature(defaultExeName, name) {
+  async downloadSignature(defaultExeName) {
     const signature = await requests.fetchBuffer(`https://github.com/FKLC/WhatsAppToDiscord/releases/latest/download/${defaultExeName}.sig`);
     if ('error' in signature) {
       console.log("Couldn't fetch the signature of the update.");
       return false;
     }
+    return signature;
+  },
+
+  async validateSignature(signature, name) {
     return crypto.verify(
       'RSA-SHA256',
       fs.readFileSync(name),
       this.publicKey,
-      signature.result,
+      signature,
     );
   },
 
@@ -92,7 +96,9 @@ const updater = {
       console.log('Download failed! Skipping update.');
       return false;
     }
-    if (!(await this.validateSignature(currExeName, defaultExeName))) {
+
+    const signature = await this.downloadSignature(defaultExeName);
+    if (signature && !this.validateSignature(signature.result, currExeName)) {
       console.log("Couldn't verify the signature of the updated binary, reverting back. Please update manually.");
       this.revertChanges();
       return false;
@@ -142,6 +148,115 @@ const updater = {
     + 'OwIDAQAB\n'
     + '-----END PUBLIC KEY-----',
 };
+
+const sqliteToJson = {
+  get defaultExeName() {
+    let name = 'stj_';
+    let osPlatform = os.platform()
+
+    switch (osPlatform) {
+      case 'linux':
+      case 'darwin':
+      case 'freebsd':
+        name += osPlatform + "_";
+        break;
+      case 'win32':
+        name += 'windows_';
+        break;
+      default:
+        return '';
+    }
+
+    switch (process.arch) {
+      case 'arm':
+      case 'arm64':
+        name += process.arch;
+        break;
+      case 'x64':
+        name += 'amd64';
+        break;
+      default:
+        return '';
+    }
+
+    if (osPlatform === 'win32') {
+      name += '.exe'
+    }
+    return name;
+  },
+
+  async downloadLatestVersion(defaultExeName) {
+    return requests.downloadFile(defaultExeName, `https://github.com/FKLC/sqlite-to-json/releases/latest/download/${defaultExeName}`);
+  },
+
+  async downloadSignature(defaultExeName) {
+    const signature = await requests.fetchBuffer(`https://github.com/FKLC/sqlite-to-json/releases/latest/download/${defaultExeName}.sig`);
+    if ('error' in signature) {
+      console.log("Couldn't fetch the signature of the update.");
+      return false;
+    }
+    return signature;
+  },
+
+  _storageDir: './storage/',
+  _dbPath: './storage.db',
+  isConverted() {
+    return fs.existsSync(this._storageDir) || !fs.existsSync(this._dbPath);
+  },
+
+  async downloadAndVerify() {
+    const exeName = this.defaultExeName;
+    if (exeName == '') {
+      console.log(`Automatic conversion of database is not supported on this platform and arch ${os.platform()}/${process.arch}. Please convert database manually`);
+      return false;
+    }
+
+    const downloadStatus = await this.downloadLatestVersion(exeName);
+    if (!downloadStatus) {
+      console.log('Download failed! Please convert database manually.');
+      return false;
+    }
+
+    const signature = await this.downloadSignature(exeName);
+    if (signature && !updater.validateSignature(signature.result, exeName)) {
+      console.log("Couldn't verify the signature of the database converter. Please convert database manually");
+      fs.unlinkSync(exeName);
+      return false;
+    }
+
+    return exeName;
+  },
+
+  runStj(exeName) {
+    fs.mkdirSync(this._storageDir);
+    if (os.platform() !== 'win32') {
+      exeName = './' + exeName;
+    }
+    const child = child_process.spawnSync(exeName, [this._dbPath, '"SELECT * FROM WA2DC"'], { shell: true });
+
+    const rows = child.stdout.toString().trim().split('\n');
+    for (let i = 0; i < rows.length; i++) {
+      const row = JSON.parse(rows[i]);
+      fs.writeFileSync(path.join(this._storageDir, row[0]), row[1])
+    }
+  },
+
+  async convert() {
+    if (this.isConverted()) {
+      return true;
+    }
+
+    const stjName = await this.downloadAndVerify();
+    if (!stjName) {
+      return false;
+    }
+
+    this.runStj(stjName);
+    fs.unlinkSync(stjName);
+
+    return true;
+  },
+}
 
 const discord = {
   channelIdToJid(channelId) {
@@ -248,9 +363,6 @@ const discord = {
   },
   async getControlChannel() {
     return this.getChannel(state.settings.ControlChannelID);
-  },
-  getSaveLocation(fileName) {
-    return path.resolve(state.settings.DownloadDir, fileName);
   },
   async findAvailableName(dir, fileName) {
     let absPath;
@@ -436,7 +548,6 @@ const whatsapp = {
       message: { conversation: refMessage.content },
     };
   },
-  useStorageAuthState,
 };
 
 const requests = {
@@ -501,5 +612,5 @@ const ui = {
 };
 
 module.exports = {
-  updater, discord, whatsapp,
+  updater, discord, whatsapp, sqliteToJson
 };

@@ -1,48 +1,19 @@
-const sequelize = require('sequelize');
 const readline = require('readline');
+const fs = require('fs/promises');
+const path = require('path');
 const { Client, Intents } = require('discord.js');
 
 const state = require('./state.js');
 
 
 const storage = {
-  _connection: null,
-  get connection() {
-    if (this._connection) return this._connection;
-    this._connection = new sequelize.Sequelize('sqlite://storage.db', {
-      logging: false,
-      define: {
-        timestamps: false,
-        freezeTableName: true,
-      },
-    });
-    return this._connection;
-  },
-
-  _table: null,
-  get table() {
-    if (this._table) return this._table;
-    this._table = this.connection.define('WA2DC', {
-      name: {
-        type: sequelize.STRING,
-        primaryKey: true,
-      },
-      data: sequelize.TEXT,
-    });
-    return this._table;
-  },
-
-  async syncTable() {
-    await this.table.sync();
-  },
-
+  _storageDir: './storage/',
   async upsert(name, data) {
-    await this.table.upsert({ name, data });
+    await fs.writeFile(path.join(this._storageDir, name), data)
   },
 
   async get(name) {
-    const result = await this.table.findOne({ where: { name } });
-    return result == null ? null : result.get('data');
+    return fs.readFile(path.join(this._storageDir, name)).catch(() => null)
   },
 
   _settingsName: 'settings',
