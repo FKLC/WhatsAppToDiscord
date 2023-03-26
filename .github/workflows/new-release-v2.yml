@@ -16,7 +16,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'npm'
 
       - name: Install dependencies
@@ -24,12 +24,13 @@ jobs:
 
       - name: Package into node binary
         run: |
-          ./node_modules/.bin/pkg . -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux
-          ./node_modules/.bin/pkg . -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS
-          ./node_modules/.bin/pkg . -t latest-win-x64 --options no-warnings -o build/WA2DC
-          ./node_modules/.bin/pkg . -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64
-          ./node_modules/.bin/pkg . -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64
-          ./node_modules/.bin/pkg . -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64
+          ./node_modules/.bin/esbuild ./src/index.js --bundle --platform=node --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js --target=node18 --outfile=out.js
+          ./node_modules/.bin/pkg out.js -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux
+          ./node_modules/.bin/pkg out.js -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS
+          ./node_modules/.bin/pkg out.js -t latest-win-x64 --options no-warnings -o build/WA2DC
+          ./node_modules/.bin/pkg out.js -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64
+          ./node_modules/.bin/pkg out.js -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64
+          ./node_modules/.bin/pkg out.js -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64
           exit 0
         shell: bash
 

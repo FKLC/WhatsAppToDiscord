@@ -19,6 +19,7 @@
     "qrcode": "^1.5.1"
   },
   "devDependencies": {
+    "esbuild": "0.17.14",
     "eslint": "^8.36.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.25.2",
