@@ -1,5 +1,5 @@
 const { Webhook, MessageAttachment } = require('discord.js');
-const { downloadMediaMessage } = require('@adiwajshing/baileys');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const readline = require('readline');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
