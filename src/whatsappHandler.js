@@ -1,4 +1,4 @@
-const baileys = require('@adiwajshing/baileys');
+const baileys = require('@whiskeysockets/baileys');
 
 const utils = require('./utils.js');
 const state = require("./state.js");

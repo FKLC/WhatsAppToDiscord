@@ -11,7 +11,7 @@
   "repository": "https://github.com/FKLC/WhatsAppToDiscord",
   "license": "MIT",
   "dependencies": {
-    "@adiwajshing/baileys": "^5.0.0",
+    "@whiskeysockets/baileys": "^6.2.1",
     "@adiwajshing/keyed-db": "^0.2.4",
     "discord.js": "^13.14.0",
     "pino": "^8.11.0",
