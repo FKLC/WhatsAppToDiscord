@@ -73,7 +73,9 @@ client.on('whatsappMessage', async (message) => {
     if (dcMessage.channel.type === 'GUILD_NEWS' && state.settings.Publish) {
       await dcMessage.crosspost();
     }
-    state.lastMessages[dcMessage.id] = message.id;
+
+    if (message.id != null)
+      state.lastMessages[dcMessage.id] = message.id;
   }
 });
 
@@ -84,7 +86,11 @@ client.on('whatsappReaction', async (reaction) => {
 
   const channel = await utils.discord.getChannel(channelId);
   const message = await channel.messages.fetch(messageId);
-  await message.react(reaction.text);
+  await message.react(reaction.text).catch(async err => {
+    if (err.code === 10014) {
+      await channel.send(`Unknown emoji reaction (${reaction.text}) received. Check WhatsApp app to see it.`);
+    }
+  });
 });
 
 client.on('whatsappCall', async ({ call, jid }) => {

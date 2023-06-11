@@ -56,7 +56,7 @@ const connectToWhatsApp = async (retry = 1) => {
         if (update.type === 'notify') {
             for await (const rawMessage of update.messages) {
                 const messageType = utils.whatsapp.getMessageType(rawMessage);
-                if (!utils.whatsapp.inWhitelist(rawMessage) || !utils.whatsapp.sentAfterStart(rawMessage) || !messageType) return;
+                if (!utils.whatsapp.inWhitelist(rawMessage) || !utils.whatsapp.sentAfterStart(rawMessage) || !messageType) continue;
 
                 const [nMsgType, message] = utils.whatsapp.getMessage(rawMessage, messageType);
                 state.dcClient.emit('whatsappMessage', {
@@ -95,6 +95,25 @@ const connectToWhatsApp = async (retry = 1) => {
             state.dcClient.emit('whatsappCall', {
                 jid: utils.whatsapp.getChannelJid(call),
                 call,
+            });
+        }
+    });
+
+    client.ev.on('contacts.update', async (contacts) => {
+        for await (const contact of contacts) {
+            if (typeof contact.imgUrl === 'undefined') continue;
+            if (!utils.whatsapp.inWhitelist({ chatId: contact.id })) continue;
+            
+            utils.whatsapp._profilePicsCache[contact.id] = await client.profilePictureUrl(contact.id, 'preview').catch(() => null);
+            const removed = utils.whatsapp._profilePicsCache[contact.id] === null;
+            state.dcClient.emit('whatsappMessage', {
+                id: null,
+                name: "WA2DC",
+                content: "[BOT] " + removed ? "User removed their profile picture!" : "User changed their profile picture!",
+                profilePic: utils.whatsapp._profilePicsCache[contact.id],
+                channelJid: utils.whatsapp.getChannelJid({ chatId: contact.id }),
+                isGroup: contact.id.endsWith('@g.us'),
+                isForwarded: false,
             });
         }
     });

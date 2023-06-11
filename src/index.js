@@ -7,7 +7,7 @@ const storage = require('./storage.js');
 const whatsappHandler =  require('./whatsappHandler.js');
 
 (async () => {
-  const version = 'v0.10.11';
+  const version = 'v0.10.12';
   state.logger = pino({ mixin() { return { version }; } }, pino.destination('logs.txt'));
   const autoSaver = setInterval(() => storage.save(), 5 * 60 * 1000);
   ['SIGINT', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async (err) => {
@@ -30,7 +30,7 @@ const whatsappHandler =  require('./whatsappHandler.js');
     state.logger.error('Conversion failed!');
     process.exit(1);
   }
-  state.logger.info('Converstion completed.');
+  state.logger.info('Conversion completed.');
 
   state.settings = await storage.parseSettings();
   state.logger.info('Loaded settings.');

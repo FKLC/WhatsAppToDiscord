@@ -503,11 +503,7 @@ const whatsapp = {
   async getProfilePic(rawMsg) {
     const jid = this.getSenderJid(rawMsg);
     if (this._profilePicsCache[jid] === undefined) {
-      try {
-        this._profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview');
-      } catch {
-        this._profilePicsCache[jid] = null;
-      }
+      this._profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview').catch(() => null);
     }
     return this._profilePicsCache[jid];
   },
@@ -549,7 +545,10 @@ const whatsapp = {
   createDocumentContent(attachment) {
     let contentType = attachment.contentType.split('/')[0];
     contentType = ['image', 'video', 'audio'].includes(contentType) ? contentType : 'document';
-    const documentContent = { mimetype: attachment.contentType.split(';')[0] };
+    const documentContent = {};
+    if (contentType === 'document') {
+      documentContent['mimetype'] = attachment.contentType.split(';')[0];
+    }
     documentContent[contentType] = { url: attachment.url };
     if (contentType === 'document') {
       documentContent.fileName = attachment.name;
