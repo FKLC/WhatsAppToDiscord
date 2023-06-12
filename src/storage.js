@@ -5,6 +5,24 @@ const { Client, Intents } = require('discord.js');
 
 const state = require('./state.js');
 
+const bidirectionalMap = (capacity, data = {}) => {
+  const keys = Object.keys(data);
+  return new Proxy(
+    data,
+    {
+      set(target, prop, newVal) {
+        keys.push(prop, newVal);
+        if (keys.length > capacity) {
+          delete target[keys.shift()];
+          delete target[keys.shift()];
+        }
+        target[prop] = newVal;
+        target[newVal] = prop;
+        return true;
+      },
+    },
+  );
+};
 
 const storage = {
   _storageDir: './storage/',
@@ -44,8 +62,14 @@ const storage = {
     return result ? JSON.parse(result) : {};
   },
 
+  _lastMessagesName: 'lastMessages',
+  async parseLastMessages() {
+    const result = await this.get(this._lastMessagesName);
+    return result ? bidirectionalMap(1000, JSON.parse(result)) : bidirectionalMap(1000);
+  },
+
   async save() {
-    for await (const field of [this._settingsName, this._chatsName, this._contactsName]) {
+    for await (const field of [this._settingsName, this._chatsName, this._contactsName, this._lastMessagesName]) {
       await this.upsert(field, JSON.stringify(state[field]));
     }
   },

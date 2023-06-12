@@ -157,7 +157,7 @@ const connectToWhatsApp = async (retry = 1) => {
         if (message.reference) {
             options.quoted = await utils.whatsapp.createQuoteMessage(message);
             if (options.quoted == null) {
-                message.channel.send("Couldn't find the message quoted. You can only reply to messages received after the bot went online. Sending the message without the quoted message.");
+                message.channel.send("Couldn't find the message quoted. You can only reply to last 500 messages. Sending the message without the quoted message.");
             }
         }
 

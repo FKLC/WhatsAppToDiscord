@@ -320,7 +320,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
   }
   const messageId = state.lastMessages[reaction.message.id];
   if (messageId == null) {
-    await reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
+    await reaction.message.channel.send("Couldn't send the reaction. You can only react to last 500 messages.");
     return;
   }
   if (user.id === state.dcClient.user.id) {
@@ -337,7 +337,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
   }
   const messageId = state.lastMessages[reaction.message.id];
   if (messageId == null) {
-    await reaction.message.channel.send("Couldn't send the reaction. You can only react to messages received after the bot went online.");
+    await reaction.message.channel.send("Couldn't remove the reaction. You can only react to last 500 messages.");
     return;
   }
   if (user.id === state.dcClient.user.id) {

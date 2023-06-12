@@ -501,7 +501,7 @@ const whatsapp = {
   },
   _profilePicsCache: {},
   async getProfilePic(rawMsg) {
-    const jid = this.getSenderJid(rawMsg);
+    const jid = this.getSenderJid(rawMsg, rawMsg.key.fromMe);
     if (this._profilePicsCache[jid] === undefined) {
       this._profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview').catch(() => null);
     }
