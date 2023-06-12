@@ -19,7 +19,7 @@ const connectToWhatsApp = async (retry = 1) => {
         markOnlineOnConnect: false,
         shouldSyncHistoryMessage: () => false,
         generateHighQualityLinkPreview: false,
-        browser: [ 'WA2DC', 'Chrome', '4.0.0' ]
+        browser: ['WA2DC', 'Chrome', '4.0.0']
     });
     client.contacts = state.contacts;
 
@@ -103,13 +103,15 @@ const connectToWhatsApp = async (retry = 1) => {
         for await (const contact of contacts) {
             if (typeof contact.imgUrl === 'undefined') continue;
             if (!utils.whatsapp.inWhitelist({ chatId: contact.id })) continue;
-            
+
             utils.whatsapp._profilePicsCache[contact.id] = await client.profilePictureUrl(contact.id, 'preview').catch(() => null);
+
+            if (!state.settings.ChangeNotifications) continue;
             const removed = utils.whatsapp._profilePicsCache[contact.id] === null;
             state.dcClient.emit('whatsappMessage', {
                 id: null,
                 name: "WA2DC",
-                content: "[BOT] " + removed ? "User removed their profile picture!" : "User changed their profile picture!",
+                content: "[BOT] " + (removed ? "User removed their profile picture!" : "User changed their profile picture!"),
                 profilePic: utils.whatsapp._profilePicsCache[contact.id],
                 channelJid: utils.whatsapp.getChannelJid({ chatId: contact.id }),
                 isGroup: contact.id.endsWith('@g.us'),
@@ -118,12 +120,28 @@ const connectToWhatsApp = async (retry = 1) => {
         }
     });
 
+    client.ws.on(`CB:notification,type:status,set`, async (update) => {
+        if (!utils.whatsapp.inWhitelist({ chatId: update.attrs.from })) return;
+
+        if (!state.settings.ChangeNotifications) return;
+        const status = update.content[0].content.toString();
+        state.dcClient.emit('whatsappMessage', {
+            id: null,
+            name: "WA2DC",
+            content: "[BOT] User changed their status to: " + status,
+            profilePic: utils.whatsapp._profilePicsCache[update.attrs.from],
+            channelJid: utils.whatsapp.getChannelJid({ chatId: update.attrs.from }),
+            isGroup: update.attrs.from.endsWith('@g.us'),
+            isForwarded: false,
+        });
+    });
+
     client.ev.on('discordMessage', async ({ jid, message }) => {
         const content = {};
         const options = {};
 
         if (state.settings.UploadAttachments) {
-            await Promise.all(message.attachments.map((file) => 
+            await Promise.all(message.attachments.map((file) =>
                 client.sendMessage(jid, utils.whatsapp.createDocumentContent(file))
                     .then(m => { state.lastMessages[message.id] = m.key.id })
             ));

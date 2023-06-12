@@ -274,6 +274,14 @@ const commands = {
     state.settings.Publish = false;
     await controlChannel.send(`Disabled publishing messages sent to news channels.`);
   },
+  async enablechangenotifications() {
+    state.settings.ChangeNotifications = true;
+    await controlChannel.send(`Enabled profile picture change and status update notifications.`);
+  },
+  async disablechangenotifications() {
+    state.settings.ChangeNotifications = false;
+    await controlChannel.send(`Disabled profile picture change and status update notifications.`);
+  },
   async unknownCommand(message) {
     controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);
   },

@@ -7,7 +7,7 @@ const storage = require('./storage.js');
 const whatsappHandler =  require('./whatsappHandler.js');
 
 (async () => {
-  const version = 'v0.10.12';
+  const version = 'v0.10.13';
   state.logger = pino({ mixin() { return { version }; } }, pino.destination('logs.txt'));
   const autoSaver = setInterval(() => storage.save(), 5 * 60 * 1000);
   ['SIGINT', 'uncaughtException', 'SIGTERM'].forEach((eventName) => process.on(eventName, async (err) => {

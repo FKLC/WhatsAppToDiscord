@@ -100,6 +100,14 @@ Enables publishing messages sent to news channels automatically.
 Disables publishing messages sent to news channels automatically.
 - Format: `disablePublishing`
 
+## enableChangeNotifications
+Enables profile picture change and status update notifications.
+- Format: `enableChangeNotifications`
+
+## disableChangeNotifications
+Disables profile picture change and status update notifications.
+- Format: `disableChangeNotifications`
+
 ## ping
 Replies back with *"Pong <Now - Time Message Sent>"ms*. It basically shows the bot's ping with the server. An unsynced date and time on your computer may cause big or even negative ping results, however, it doesn't mean you got negative ping or 10mins of lag, rather it is the Discord's time and your computer's time difference plus your ping.
 - Format: `ping`

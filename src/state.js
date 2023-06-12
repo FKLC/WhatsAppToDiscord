@@ -31,6 +31,7 @@ module.exports = {
     LocalDownloadMessage: 'Downloaded a file larger than 8MB, check it out at {abs}',
     DownloadDir: './downloads',
     Publish: false,
+    ChangeNotifications: false,
   },
   dcClient: null,
   waClient: null,

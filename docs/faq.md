@@ -34,3 +34,21 @@ There are 3 options you can use.
 
 ## Is it possible to run on Docker?
 It is actually possible to run this bot in Docker. You just have to set your Discord token as an environment variable named WA2DC_TOKEN, and run Dockerfile in the repo.
+
+## How to build an executable of the program
+The bot is built publicly on [GitHub actions](https://github.com/FKLC/WhatsAppToDiscord/actions/workflows/new-release-v2.yml), but here's a walkthrough of the whole process.
+1. Install Node and NPM [here](https://nodejs.org/en/download).
+1. Install Git [here](https://git-scm.com/downloads)
+1. Execute the following commands to clone and enter bot's folder:
+    1. `git clone https://github.com/FKLC/WhatsAppToDiscord.git`
+    1. `cd WhatsAppToDiscord` 
+1. Run `npm i` to install dependencies
+1. Run `./node_modules/.bin/esbuild ./src/index.js --bundle --platform=node --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js --target=node18 --outfile=out.js` to create a single JS file
+1. Run one of the following commands based on your platform:
+    - For x64 Linux: `./node_modules/.bin/pkg out.js -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux`
+    - For x64 MacOS: `./node_modules/.bin/pkg out.js -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS`
+    - For x64 Windows: `./node_modules/.bin/pkg out.js -t latest-win-x64 --options no-warnings -o build/WA2DC`
+    - For ARM Linux `./node_modules/.bin/pkg out.js -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64`
+    - For ARM MacOS `./node_modules/.bin/pkg out.js -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64`
+    - For ARM Windows: `./node_modules/.bin/pkg out.js -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64`
+1. That's it. You will have your executable in the `build` folder.
