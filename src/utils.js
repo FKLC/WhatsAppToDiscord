@@ -103,7 +103,7 @@ const updater = {
 
   async update() {
     const currExeName = this.currentExeName;
-    const { defaultExeName } = this;
+    const defaultExeName = this.defaultExeName;
     if (!defaultExeName) {
       console.log(`Auto-update is not supported on this platform: ${os.platform()}`);
       return false;
@@ -483,11 +483,11 @@ const whatsapp = {
   async getFile(rawMsg, msgType) {
     const [nMsgType, msg] = this.getMessage(rawMsg, msgType);
     if (msg.fileLength == null) return;
-    if (msg.fileLength.low > 8388284 && !state.settings.LocalDownloads) return -1;
+    if (msg.fileLength.low > 26214400 && !state.settings.LocalDownloads) return -1;
     return {
       name: this.getFilename(msg, nMsgType),
       attachment: await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: state.logger, reuploadRequest: state.waClient.updateMediaMessage }),
-      largeFile: msg.fileLength.low > 8388284,
+      largeFile: msg.fileLength.low > 26214400,
     };
   },
   inWhitelist(rawMsg) {
@@ -552,6 +552,9 @@ const whatsapp = {
     documentContent[contentType] = { url: attachment.url };
     if (contentType === 'document') {
       documentContent.fileName = attachment.name;
+    }
+    if (attachment.name === 'voice-message.ogg'){
+      documentContent['ptt'] = true;
     }
     return documentContent;
   },

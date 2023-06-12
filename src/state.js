@@ -32,6 +32,7 @@ module.exports = {
     DownloadDir: './downloads',
     Publish: false,
     ChangeNotifications: false,
+    autoSaveInterval: 5 * 60
   },
   dcClient: null,
   waClient: null,

@@ -282,8 +282,16 @@ const commands = {
     state.settings.ChangeNotifications = false;
     await controlChannel.send(`Disabled profile picture change and status update notifications.`);
   },
+  async autosaveinterval(_message, params) {
+    if (params.length !== 1) {
+      await controlChannel.send("Usage: autoSaveInterval <seconds>\nExample: autoSaveInterval 60");
+      return;
+    }
+    state.settings.autoSaveInterval = +params[0];
+    await controlChannel.send(`Changed auto save interval to ${params[0]}.`);
+  },
   async unknownCommand(message) {
-    controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);
+    await controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);
   },
 };
 
