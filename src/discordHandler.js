@@ -217,24 +217,7 @@ const commands = {
     await controlChannel.send('Disabled uploading files to WhatsApp!');
   },
   async help() {
-    await controlChannel.send(
-      [
-        '`start <number with country code or name>`: Starts a new conversation.',
-        '`list`: Lists existing chats.',
-        '`list <chat name to search>`: Finds chats that contain the given argument.',
-        '`listWhitelist`: Lists all whitelisted conversations.',
-        '`addToWhitelist <channel name>`: Adds specified conversation to the whitelist.',
-        '`removeFromWhitelist <channel name>`: Removes specified conversation from the whitelist.',
-        '`resync`: Re-syncs your contacts and groups.',
-        '`enableWAUpload`: Starts uploading attachments sent to Discord to WhatsApp.',
-        '`disableWAUpload`: Stop uploading attachments sent to Discord to WhatsApp.',
-        '`enableDCPrefix`: Starts adding your Discord username to messages sent to WhatsApp.',
-        '`disableDCPrefix`: Stops adding your Discord username to messages sent to WhatsApp.',
-        "`enableWAPrefix`: Starts adding sender's name to messages sent to Discord.",
-        "`disableWAPrefix`: Stops adding sender's name to messages sent to Discord.",
-        '`ping`: Sends "Pong! <Now - Time Message Sent>ms" back.',
-      ].join('\n'),
-    );
+    await controlChannel.send('See all the available commands at https://fklc.github.io/WhatsAppToDiscord/#/commands');
   },
   async resync() {
     await state.waClient.authState.keys.set({
@@ -289,6 +272,14 @@ const commands = {
     }
     state.settings.autoSaveInterval = +params[0];
     await controlChannel.send(`Changed auto save interval to ${params[0]}.`);
+  },
+  async lastmessagestorage(_message, params) {
+    if (params.length !== 1) {
+      await controlChannel.send("Usage: lastMessageStorage <size>\nExample: lastMessageStorage 1000");
+      return;
+    }
+    state.settings.lastMessageStorage = +params[0];
+    await controlChannel.send(`Changed last message storage size to ${params[0]}.`);
   },
   async unknownCommand(message) {
     await controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);

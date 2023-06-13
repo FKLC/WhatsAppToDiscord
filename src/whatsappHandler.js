@@ -124,7 +124,8 @@ const connectToWhatsApp = async (retry = 1) => {
         if (!utils.whatsapp.inWhitelist({ chatId: update.attrs.from })) return;
 
         if (!state.settings.ChangeNotifications) return;
-        const status = update.content[0].content.toString();
+        const status = update.content[0]?.content?.toString();
+        if (!status) return;
         state.dcClient.emit('whatsappMessage', {
             id: null,
             name: "WA2DC",

@@ -65,7 +65,9 @@ const storage = {
   _lastMessagesName: 'lastMessages',
   async parseLastMessages() {
     const result = await this.get(this._lastMessagesName);
-    return result ? bidirectionalMap(1000, JSON.parse(result)) : bidirectionalMap(1000);
+    return result ? 
+      bidirectionalMap(state.settings.lastMessageStorage * 2, JSON.parse(result)) : 
+      bidirectionalMap(state.settings.lastMessageStorage * 2);
   },
 
   async save() {
