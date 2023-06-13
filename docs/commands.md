@@ -115,7 +115,7 @@ Changes the auto save interval to the number of seconds you provide.
 
 ## lastMessageStorage
 Changes the last message storage size to the number provide.
-- Format: `lastMessageStorage <seconds>`
+- Format: `lastMessageStorage <size>`
 - Example: `lastMessageStorage 1000`
 
 
