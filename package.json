@@ -11,19 +11,19 @@
   "repository": "https://github.com/FKLC/WhatsAppToDiscord",
   "license": "MIT",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.2.1",
     "@adiwajshing/keyed-db": "^0.2.4",
-    "discord.js": "^13.14.0",
-    "pino": "^8.11.0",
-    "pkg-fetch": "^3.4.2",
-    "qrcode": "^1.5.1"
+    "@whiskeysockets/baileys": "^6.3.0",
+    "discord.js": "^13.16.0",
+    "pino": "^8.14.1",
+    "pkg-fetch": "^3.5.2",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "esbuild": "0.17.14",
-    "eslint": "^8.36.0",
+    "eslint": "^8.44.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.25.2",
-    "pkg": "^5.7.0",
-    "prettier": "^2.7.1"
+    "eslint-plugin-import": "^2.27.5",
+    "pkg": "^5.8.1",
+    "prettier": "^2.8.8"
   }
 }
