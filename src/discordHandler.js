@@ -37,9 +37,14 @@ client.on('whatsappMessage', async (message) => {
 
   if (message.isForwarded) {
     msgContent += `forwarded message:\n${message.content.split('\n').join('\n> ')}`;
-  } else if (message.quote) {
+  }
+  else if (message.quote) {
     msgContent += `> ${message.quote.name}: ${message.quote.content.split('\n').join('\n> ')}\n${message.content}`;
-  } else {
+  }
+  else if (message.isEdit) {
+    msgContent += "Edited message:\n" + message.content;
+  }
+  else {
     msgContent += message.content;
   }
 
@@ -303,6 +308,20 @@ client.on('messageCreate', async (message) => {
     state.waClient.ev.emit('discordMessage', { jid, message });
   }
 });
+
+client.on('messageUpdate', async (_, message) => {
+  const jid = utils.discord.channelIdToJid(message.channelId);
+  if (jid == null) {
+    return;
+  }
+  const messageId = state.lastMessages[message.id];
+  if (messageId == null) {
+    await message.channel.send("Couldn't edit the message. You can only edit the last 500 messages.");
+    return;
+  }
+  
+  state.waClient.ev.emit('discordEdit', { jid, message });
+})
 
 client.on('messageReactionAdd', async (reaction, user) => {
   const jid = utils.discord.channelIdToJid(reaction.message.channel.id);

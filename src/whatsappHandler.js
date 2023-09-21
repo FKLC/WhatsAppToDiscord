@@ -69,6 +69,7 @@ const connectToWhatsApp = async (retry = 1) => {
                     channelJid: utils.whatsapp.getChannelJid(rawMessage),
                     isGroup: utils.whatsapp.isGroup(rawMessage),
                     isForwarded: utils.whatsapp.isForwarded(message),
+                    isEdit: messageType === 'editedMessage'
                 });
             }
         }
@@ -165,6 +166,26 @@ const connectToWhatsApp = async (retry = 1) => {
         if (message.content === "") return;
 
         state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
+    });
+
+    client.ev.on('discordEdit', async ({ jid, message }) => {
+        const key = {
+            id: state.lastMessages[message.id],
+            fromMe: message.webhookId == null || message.author.username === 'You',
+            remoteJid: jid,
+        };
+
+        if (jid.endsWith('@g.us')) {
+            key.participant = utils.whatsapp.toJid(message.author.username);
+        }
+
+        await client.sendMessage(
+            jid,
+            {
+                text: message.content,
+                edit: key,
+            }
+        ).then(console.log)
     });
 
     client.ev.on('discordReaction', async ({ jid, reaction, removed }) => {

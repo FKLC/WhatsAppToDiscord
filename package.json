@@ -12,7 +12,7 @@
   "license": "MIT",
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
-    "@whiskeysockets/baileys": "^6.3.0",
+    "@whiskeysockets/baileys": "^6.4.1",
     "discord.js": "^13.16.0",
     "pino": "^8.14.1",
     "pkg-fetch": "^3.5.2",

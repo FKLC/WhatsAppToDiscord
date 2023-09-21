@@ -469,6 +469,10 @@ const whatsapp = {
       const nMsgType = this.getMessageType(rawMsg.message[msgType]);
       return [nMsgType, rawMsg.message[msgType].message[nMsgType]];
     }
+    else if (msgType === 'editedMessage') {
+      const nMsgType = this.getMessageType({ message: rawMsg.message[msgType].message.protocolMessage.editedMessage } );
+      return [nMsgType, rawMsg.message[msgType].message.protocolMessage.editedMessage[nMsgType]];
+    }
     return [msgType, rawMsg.message[msgType]];
   },
   getFilename(msg, msgType) {
@@ -497,11 +501,11 @@ const whatsapp = {
     return (rawMsg?.messageTimestamp || rawMsg?.reaction?.senderTimestampMs || rawMsg?.date?.getTime() / 1000) > state.startTime;
   },
   getMessageType(rawMsg) {
-    return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
+    return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage', 'editedMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
   },
   _profilePicsCache: {},
   async getProfilePic(rawMsg) {
-    const jid = this.getSenderJid(rawMsg, rawMsg.key.fromMe);
+    const jid = this.getSenderJid(rawMsg, rawMsg?.key?.fromMe);
     if (this._profilePicsCache[jid] === undefined) {
       this._profilePicsCache[jid] = await state.waClient.profilePictureUrl(jid, 'preview').catch(() => null);
     }
