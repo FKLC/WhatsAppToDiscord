@@ -4,6 +4,9 @@
 # done by vishyvishal14
 # installing nodejs 
 
+#make it superuser mode so other commands below work properly 
+
+sudo su
 # update reps
 apt update && apt upgrade
 #pull node setup
