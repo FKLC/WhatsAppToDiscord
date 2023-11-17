@@ -573,6 +573,14 @@ const whatsapp = {
       message: { conversation: refMessage.content },
     };
   },
+
+  async deleteSession() {
+    const dir = './storage/baileys';
+    const files = await fs.promises.readdir(dir);
+    for (let file of files) {
+      fs.unlinkSync(path.join(dir, file));
+    }
+  }
 };
 
 const requests = {

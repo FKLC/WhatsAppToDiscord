@@ -40,6 +40,7 @@ const connectToWhatsApp = async (retry = 1) => {
                 await connectToWhatsApp(retry + 1);
             } else {
                 await controlChannel.send('Connection failed 5 times. Please rescan the QR code.');
+                await utils.whatsapp.deleteSession();
                 await actions.start(true);
             }
         } else if (connection === 'open') {
@@ -185,7 +186,7 @@ const connectToWhatsApp = async (retry = 1) => {
                 text: message.content,
                 edit: key,
             }
-        ).then(console.log)
+        )
     });
 
     client.ev.on('discordReaction', async ({ jid, reaction, removed }) => {

@@ -310,10 +310,15 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('messageUpdate', async (_, message) => {
+  if (message.webhookId != null) {
+    return;
+  }
+
   const jid = utils.discord.channelIdToJid(message.channelId);
   if (jid == null) {
     return;
   }
+
   const messageId = state.lastMessages[message.id];
   if (messageId == null) {
     await message.channel.send("Couldn't edit the message. You can only edit the last 500 messages.");
