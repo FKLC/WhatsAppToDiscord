@@ -337,6 +337,25 @@ const discord = {
     resolve(webhook);
     return webhook;
   },
+  async safeWebhookSend(webhook, args, jid) {
+    try {
+      return await webhook.send(args);
+    } catch (err) {
+      if (err.code === 10015 && err.message.includes('Unknown Webhook')) {
+        delete state.goccRuns[jid];
+        const channel = await this.getChannel(webhook.channelId);
+        webhook = await channel.createWebhook('WA2DC');
+        state.chats[jid] = {
+          id: webhook.id,
+          type: webhook.type,
+          token: webhook.token,
+          channelId: webhook.channelId,
+        };
+        return await webhook.send(args);
+      }
+      throw err;
+    }
+  },
   async repairChannels() {
     const guild = await this.getGuild();
     await guild.channels.fetch();
@@ -470,7 +489,7 @@ const whatsapp = {
       return [nMsgType, rawMsg.message[msgType].message[nMsgType]];
     }
     else if (msgType === 'editedMessage') {
-      const nMsgType = this.getMessageType({ message: rawMsg.message[msgType].message.protocolMessage.editedMessage } );
+      const nMsgType = this.getMessageType({ message: rawMsg.message[msgType].message.protocolMessage.editedMessage });
       return [nMsgType, rawMsg.message[msgType].message.protocolMessage.editedMessage[nMsgType]];
     }
     return [msgType, rawMsg.message[msgType]];
@@ -557,7 +576,7 @@ const whatsapp = {
     if (contentType === 'document') {
       documentContent.fileName = attachment.name;
     }
-    if (attachment.name === 'voice-message.ogg'){
+    if (attachment.name === 'voice-message.ogg') {
       documentContent['ptt'] = true;
     }
     return documentContent;

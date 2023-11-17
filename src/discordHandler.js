@@ -63,18 +63,18 @@ client.on('whatsappMessage', async (message) => {
     msgContent = utils.discord.partitionText(msgContent);
     while (msgContent.length > 1) {
       // eslint-disable-next-line no-await-in-loop
-      await webhook.send({
+      await utils.discord.safeWebhookSend(webhook, {
         content: msgContent.shift(),
         username: message.name,
         avatarURL: message.profilePic,
-      });
+      }, message.channelJid);
     }
-    const dcMessage = await webhook.send({
+    const dcMessage = await utils.discord.safeWebhookSend(webhook, {
       content: msgContent.shift() || null,
       username: message.name,
       files,
       avatarURL: message.profilePic,
-    });
+    }, message.channelJid);
     if (dcMessage.channel.type === 'GUILD_NEWS' && state.settings.Publish) {
       await dcMessage.crosspost();
     }
