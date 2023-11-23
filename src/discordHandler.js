@@ -197,6 +197,17 @@ const commands = {
         : 'Whitelist is empty/inactive.',
     );
   },
+  async setdcprefix(message, params) {
+    if (params.length !== 0) {
+      const capitalizeFirstLetter = (words) => words.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      const prefix = capitalizeFirstLetter(params.join(' '));
+      state.settings.DiscordPrefixText = prefix;
+      await controlChannel.send('Discord prefix is set to ' + prefix + '!');
+    } else {
+      state.settings.DiscordPrefixText = null;
+      await controlChannel.send('Discord prefix is set to your discord username!');
+    }
+  },
   async enabledcprefix() {
     state.settings.DiscordPrefix = true;
     await controlChannel.send('Discord username prefix enabled!');
@@ -324,7 +335,7 @@ client.on('messageUpdate', async (_, message) => {
     await message.channel.send("Couldn't edit the message. You can only edit the last 500 messages.");
     return;
   }
-  
+
   state.waClient.ev.emit('discordEdit', { jid, message });
 })
 
@@ -341,7 +352,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  
+
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: false });
 });
 
@@ -358,7 +369,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
   if (user.id === state.dcClient.user.id) {
     return;
   }
-  
+
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: true });
 });
 
