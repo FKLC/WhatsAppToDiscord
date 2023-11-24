@@ -154,7 +154,7 @@ const connectToWhatsApp = async (retry = 1) => {
         }
 
         if (state.settings.DiscordPrefix) {
-            content.text = `[${message.member?.nickname || message.author.username}] ${content.text}`;
+            content.text = `[${state.settings.DiscordPrefixText || message.member?.nickname || message.author.username}] ${content.text}`;
         }
 
         if (message.reference) {

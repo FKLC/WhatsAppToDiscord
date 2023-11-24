@@ -1,6 +1,7 @@
 module.exports = {
   settings: {
     Whitelist: [],
+    DiscordPrefixText: null,
     DiscordPrefix: false,
     WAGroupPrefix: false,
     UploadAttachments: true,
