@@ -19,7 +19,7 @@ const connectToWhatsApp = async (retry = 1) => {
         markOnlineOnConnect: false,
         shouldSyncHistoryMessage: () => false,
         generateHighQualityLinkPreview: false,
-        browser: ['WA2DC', 'Chrome', '4.0.0']
+        browser: ["Firefox (Linux)", "", ""]
     });
     client.contacts = state.contacts;
 
@@ -210,6 +210,8 @@ const connectToWhatsApp = async (retry = 1) => {
         ).key.id;
         state.lastMessages[messageId] = true;
     });
+
+    return client;
 };
 
 const actions = {
@@ -217,7 +219,7 @@ const actions = {
         const baileyState = await baileys.useMultiFileAuthState('./storage/baileys');
         authState = baileyState.state;
         saveState = baileyState.saveCreds;
-        await connectToWhatsApp();
+        state.waClient = await connectToWhatsApp();
     },
 }
 

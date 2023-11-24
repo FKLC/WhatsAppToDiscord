@@ -127,6 +127,15 @@ const commands = {
   async ping(message) {
     controlChannel.send(`Pong ${Date.now() - message.createdTimestamp}ms!`);
   },
+  async pairwithcode(_message, params) {
+    if (params.length !== 1) {
+      await controlChannel.send('Please enter your number. Usage: `pairWithCode <number>`. Don\'t use "+" or any other special characters.');
+      return;
+    }
+
+    const code = await state.waClient.requestPairingCode(params[0]);
+    await controlChannel.send(`Your pairing code is: ${code}`);
+  },
   async start(_message, params) {
     if (!params.length) {
       await controlChannel.send('Please enter a phone number or name. Usage: `start <number with country code or name>`.');

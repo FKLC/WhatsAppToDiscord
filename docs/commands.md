@@ -1,6 +1,12 @@
 # Commands
 You can use the following commands only in `#control-room` created by the bot. Note that all the commands are case-insensitive. So, `list`, `LIST`, and `lIsT` would evaluate the same way.
 
+## pairWithCode
+Pairing with your phone number
+- Format: `pairWithCode <number with country code>`
+- Examples:
+    - `pairWithCode 18001231234`: This would give you a code for you to enter on your phone and pair the bot with your phone number.
+
 ## start
 Starts a new conversation. It can be used with a name or a phone number. 
 - Format: `start <number with country code or name>`
