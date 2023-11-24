@@ -199,10 +199,9 @@ const commands = {
   },
   async setdcprefix(message, params) {
     if (params.length !== 0) {
-      const capitalizeFirstLetter = (words) => words.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-      const prefix = capitalizeFirstLetter(params.join(' '));
+      const prefix = message.content.split(' ').slice(1).join(' ');
       state.settings.DiscordPrefixText = prefix;
-      await controlChannel.send('Discord prefix is set to ' + prefix + '!');
+      await controlChannel.send(`Discord prefix is set to ${prefix}!`);
     } else {
       state.settings.DiscordPrefixText = null;
       await controlChannel.send('Discord prefix is set to your discord username!');
