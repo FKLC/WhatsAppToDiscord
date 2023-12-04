@@ -106,6 +106,10 @@ const setup = {
   async firstRun() {
     const settings = state.settings;
     console.log('It seems like this is your first run.');
+    if (process.env.WA2DC_TOKEN === "CHANGE_THIS_TOKEN") {
+      console.log("Please set WA2DC_TOKEN environment variable.");
+      process.exit();
+    }
     const input = async (query) => {
       return new Promise((resolve) => {
         const rl = readline.createInterface({
