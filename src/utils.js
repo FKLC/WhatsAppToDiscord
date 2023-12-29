@@ -343,7 +343,7 @@ const discord = {
     } catch (err) {
       if (err.code === 10015 && err.message.includes('Unknown Webhook')) {
         delete state.goccRuns[jid];
-        const channel = await this.getChannel(webhook.channelId);
+        const channel = await this.getChannel(state.chats[jid].channelId);
         webhook = await channel.createWebhook('WA2DC');
         state.chats[jid] = {
           id: webhook.id,
@@ -397,6 +397,16 @@ const discord = {
       if (channel.id !== state.settings.ControlChannelID && state.settings.Categories.includes(channel.parentId) && !this.channelIdToJid(channel.id)) {
         channel.edit({ parent: null });
       }
+    }
+  },
+  async renameChannels() {
+    const guild = await this.getGuild();
+
+    for (const [jid, webhook] of Object.entries(state.chats)) {
+      const channel = await guild.channels.fetch(webhook.channelId);
+      await channel.edit({
+        name: whatsapp.jidToName(jid),
+      });
     }
   },
   async getControlChannel() {

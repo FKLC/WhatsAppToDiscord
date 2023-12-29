@@ -19,6 +19,7 @@
     "qrcode": "^1.5.3"
   },
   "devDependencies": {
+    "docsify-cli": "^4.4.4",
     "esbuild": "0.17.14",
     "eslint": "^8.44.0",
     "eslint-config-airbnb-base": "^15.0.0",

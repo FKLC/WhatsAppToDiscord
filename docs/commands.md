@@ -38,15 +38,15 @@ Removes the given channel from the whitelist.
     - `removeFromWhitelist #john-doe`: This would remove John Doe from the whitelist, preventing them to send you a message if you have whitelist enabled.
 
 ## resync
-Re-syncs your contacts and groups. Can be used when the bot can't find your desired contact or group.
+Re-syncs your contacts and groups, and renames channels. Can be used when the bot can't find your desired contact or group.
 - Format: `resync`
 
 ## enableWAUpload
-When enabled (enabled by default), the files received from Discord will be uploaded to WhatsApp.
+When enabled (enabled by default), the files received from Discord will be uploaded to WhatsApp, instead of providing a link to the attachment. File uploads takes longer and consumes more data.
 - Format: `enableWAUpload`
 
 ## disableWAUpload
-When disabled (enabled by default), the files received from Discord will be sent as links to WhatsApp.
+When disabled (enabled by default), the files received from Discord will be sent as links to WhatsApp, instead of uploading them as a file. Providing links takes shorter and consumes less data.
 - Format: `disableWAUpload`
 
 ## setDCPrefix
@@ -62,11 +62,11 @@ When disabled (disabled by default), your Discord username won't be added to mes
 - Format: `disableDCPrefix`
 
 ## enableWAPrefix
-When enabled (disabled by default), WhatsApp names will be added to messages sent to Discord from WhatsApp. (Note that the bot already sends messages by WhatsApp names anyway. This is an accessibility option)
+When enabled (disabled by default), WhatsApp names will be added to messages sent to Discord from WhatsApp. (Note that the bot already sets the username to the message sender's name)
 - Format: `enableWAPrefix`
 
 ## disableWAPrefix
-When disabled (disabled by default), WhatsApp names won't be added to messages sent to Discord from WhatsApp. (Note that the bot already sends messages by WhatsApp names anyway. This is an accessibility option)
+When disabled (disabled by default), WhatsApp names won't be added to messages sent to Discord from WhatsApp. (Note that the bot already sets the username to the message sender's name)
 - Format: `disableWAPrefix`
 
 ## enableLocalDownloads
@@ -103,7 +103,7 @@ Sets the download directory.
     - `setDownloadDir ./downloads`: Downloads files to Downloads folder in your bot's location.
 
 ## enablePublishing
-Enables publishing messages sent to news channels automatically.
+Enables publishing messages sent to news channels automatically. By default, the bot won't notify news channel followers. With this option, you can send the message to the channel followers.
 - Format: `enablePublishing`
 
 ## disablePublishing
@@ -124,12 +124,10 @@ Changes the auto save interval to the number of seconds you provide.
 - Example: `autoSaveInterval 60`
 
 ## lastMessageStorage
-Changes the last message storage size to the number provide.
+Changes the last message storage size to the number provide. Last message storage size determines the number of last messages you can reply to. A value of 1000 would mean, you can react or reply to last 1000 messages received or sent. 
 - Format: `lastMessageStorage <size>`
 - Example: `lastMessageStorage 1000`
-
 
 ## ping
 Replies back with *"Pong <Now - Time Message Sent>"ms*. It basically shows the bot's ping with the server. An unsynced date and time on your computer may cause big or even negative ping results, however, it doesn't mean you got negative ping or 10mins of lag, rather it is the Discord's time and your computer's time difference plus your ping.
 - Format: `ping`
-

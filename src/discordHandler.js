@@ -249,6 +249,7 @@ const commands = {
     });
     await state.waClient.resyncAppState(['critical_unblock_low']);
     for (const [jid, attributes] of Object.entries(await state.waClient.groupFetchAllParticipating())) { state.waClient.contacts[jid] = attributes.subject; }
+    await utils.discord.renameChannels();
     await controlChannel.send('Re-synced!');
   },
   async enablelocaldownloads() {
