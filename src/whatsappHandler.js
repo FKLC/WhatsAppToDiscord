@@ -140,6 +140,10 @@ const connectToWhatsApp = async (retry = 1) => {
     });
 
     client.ev.on('discordMessage', async ({ jid, message }) => {
+        if ((state.settings.oneWay >> 1 & 1) === 0) {
+            return;
+        }
+        
         const content = {};
         const options = {};
 
@@ -170,6 +174,10 @@ const connectToWhatsApp = async (retry = 1) => {
     });
 
     client.ev.on('discordEdit', async ({ jid, message }) => {
+        if ((state.settings.oneWay >> 1 & 1) === 0) {
+            return;
+        }
+
         const key = {
             id: state.lastMessages[message.id],
             fromMe: message.webhookId == null || message.author.username === 'You',
@@ -190,6 +198,10 @@ const connectToWhatsApp = async (retry = 1) => {
     });
 
     client.ev.on('discordReaction', async ({ jid, reaction, removed }) => {
+        if ((state.settings.oneWay >> 1 & 1) === 0) {
+            return;
+        }
+
         const key = {
             id: state.lastMessages[reaction.message.id],
             fromMe: reaction.message.webhookId == null || reaction.message.author.username === 'You',

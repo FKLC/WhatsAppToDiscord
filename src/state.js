@@ -16,6 +16,7 @@ module.exports = {
     ChangeNotifications: false,
     autoSaveInterval: 5 * 60,
     lastMessageStorage: 500,
+    oneWay: 0b11
   },
   dcClient: null,
   waClient: null,

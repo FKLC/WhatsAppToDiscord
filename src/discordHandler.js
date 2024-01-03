@@ -29,6 +29,10 @@ client.on('channelDelete', async (channel) => {
 });
 
 client.on('whatsappMessage', async (message) => {
+  if ((state.settings.oneWay >> 0 & 1) === 0) {
+    return;
+  }
+  
   let msgContent = '';
   const files = [];
   const webhook = await utils.discord.getOrCreateChannel(message.channelJid);
@@ -85,6 +89,10 @@ client.on('whatsappMessage', async (message) => {
 });
 
 client.on('whatsappReaction', async (reaction) => {
+  if ((state.settings.oneWay >> 0 & 1) === 0) {
+    return;
+  }
+
   const channelId = state.chats[reaction.jid]?.channelId;
   const messageId = state.lastMessages[reaction.id];
   if (channelId == null || messageId == null) { return; }
@@ -99,6 +107,10 @@ client.on('whatsappReaction', async (reaction) => {
 });
 
 client.on('whatsappCall', async ({ call, jid }) => {
+  if ((state.settings.oneWay >> 0 & 1) === 0) {
+    return;
+  }
+  
   const webhook = await utils.discord.getOrCreateChannel(jid);
 
   const name = utils.whatsapp.jidToName(jid);
@@ -305,6 +317,25 @@ const commands = {
     }
     state.settings.lastMessageStorage = +params[0];
     await controlChannel.send(`Changed last message storage size to ${params[0]}.`);
+  },
+  async oneway(_message, params) {
+    if (params.length !== 1) {
+      await controlChannel.send("Usage: oneWay <discord|whatsapp|disabled>\nExample: oneWay whatsapp");
+      return;
+    }
+    
+    if (params[0] === "disabled") {
+      state.settings.oneWay = 0b11;
+      await controlChannel.send(`Two way communication is enabled.`);
+    } else if (params[0] === "whatsapp") {
+      state.settings.oneWay = 0b10;
+      await controlChannel.send(`Messages will be only sent to WhatsApp.`);
+    } else if (params[0] === "discord") {
+      state.settings.oneWay = 0b01;
+      await controlChannel.send(`Messages will be only sent to Discord.`);
+    } else {
+      await controlChannel.send("Usage: oneWay <discord|whatsapp|disabled>\nExample: oneWay whatsapp");
+    }
   },
   async unknownCommand(message) {
     await controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);

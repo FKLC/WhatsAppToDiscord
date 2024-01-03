@@ -118,6 +118,12 @@ Enables profile picture change and status update notifications.
 Disables profile picture change and status update notifications.
 - Format: `disableChangeNotifications`
 
+## oneWay
+Turns on one-way communication.
+- Format: `oneWay <discord|whatsapp|disabled>`
+- Examples:
+    - `oneWay discord`: would only send messages coming from WhatsApp to Discord, but not the other way.
+
 ## autoSaveInterval
 Changes the auto save interval to the number of seconds you provide.
 - Format: `autoSaveInterval <seconds>`
