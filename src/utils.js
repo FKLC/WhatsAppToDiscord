@@ -127,6 +127,11 @@ const updater = {
   },
 
   async run(currVer) {
+    if (process.argv.some(arg => ['--skip-update', '-su'].includes(arg))) {
+      console.log('Skipping update due to command line argument.');
+      return;
+    }
+
     if (this.isNode) {
       console.log('Running script with node. Skipping auto-update.');
       return;
