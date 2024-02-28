@@ -591,7 +591,7 @@ const whatsapp = {
     if (contentType === 'document') {
       documentContent.fileName = attachment.name;
     }
-    if (attachment.name === 'voice-message.ogg') {
+    if (attachment.name.toLowerCase().endsWith('.ogg')) {
       documentContent['ptt'] = true;
     }
     return documentContent;
