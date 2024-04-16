@@ -1,0 +1,9 @@
+Privacy Policy
+
+WA2DC does not collect any personal data from its users.
+
+We use Google AdSense to serve ads on our website. Google's use of advertising cookies enables it and its partners to serve ads to our users based on their visit to our site and/or other sites on the Internet. Users may opt-out of personalized advertising by visiting Google's Ad Settings.
+
+Please note that WA2DC has no access to or control over these cookies that are used by third-party advertisers.
+
+WA2DC is hosted on GitHub Pages, and as such, GitHub may collect usage data as described in the GitHub Privacy Statement.
