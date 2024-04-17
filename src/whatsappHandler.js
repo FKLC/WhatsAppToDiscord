@@ -118,6 +118,7 @@ const connectToWhatsApp = async (retry = 1) => {
                 channelJid: utils.whatsapp.getChannelJid({ chatId: contact.id }),
                 isGroup: contact.id.endsWith('@g.us'),
                 isForwarded: false,
+                file: removed ? null : await client.profilePictureUrl(contact.id, 'image').catch(() => null),
             });
         }
     });
