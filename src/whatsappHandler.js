@@ -144,9 +144,12 @@ const connectToWhatsApp = async (retry = 1) => {
         if ((state.settings.oneWay >> 1 & 1) === 0) {
             return;
         }
-        
+
         const content = {};
         const options = {};
+
+        // Obtém o nome do usuário do Discord
+        const username = message.member?.nickname || message.author.username;
 
         if (state.settings.UploadAttachments) {
             await Promise.all(message.attachments.map((file) =>
@@ -158,9 +161,8 @@ const connectToWhatsApp = async (retry = 1) => {
             content.text = [message.content, ...Object.values(message.attachments).map((file) => file.url)].join(' ');
         }
 
-        if (state.settings.DiscordPrefix) {
-            content.text = `[${state.settings.DiscordPrefixText || message.member?.nickname || message.author.username}] ${content.text}`;
-        }
+        // Adiciona o prefixo personalizado, se houver, ou o nome do usuário
+        content.text = `[${state.settings.DiscordPrefixText || username}]: ${content.text}`;
 
         if (message.reference) {
             options.quoted = await utils.whatsapp.createQuoteMessage(message);
@@ -171,6 +173,7 @@ const connectToWhatsApp = async (retry = 1) => {
 
         if (message.content === "") return;
 
+        // Envia a mensagem concatenada com o nome do usuário
         state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
     });
 
