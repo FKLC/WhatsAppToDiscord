@@ -148,7 +148,7 @@ const connectToWhatsApp = async (retry = 1) => {
         const content = {};
         const options = {};
 
-        // Obtém o nome do usuário do Discord
+        // Obtém o nome de usuário real do Discord (não o apelido)
         const username = message.author.username;
 
         if (state.settings.UploadAttachments) {
@@ -161,8 +161,8 @@ const connectToWhatsApp = async (retry = 1) => {
             content.text = [message.content, ...Object.values(message.attachments).map((file) => file.url)].join(' ');
         }
 
-        // Adiciona o nome do usuário em negrito seguido de dois pontos
-        content.text = `*${username}*:\n${content.text}`;
+        // Formata a mensagem com o nome do usuário em negrito, seguido de nova linha e dois pontos
+        content.text = `*${username}:*\n${content.text}`;
 
         if (message.reference) {
             options.quoted = await utils.whatsapp.createQuoteMessage(message);
@@ -173,9 +173,10 @@ const connectToWhatsApp = async (retry = 1) => {
 
         if (message.content === "") return;
 
-        // Envia a mensagem formatada com o nome do usuário em negrito
+        // Envia a mensagem formatada no WhatsApp
         state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
     });
+
 
     client.ev.on('discordEdit', async ({ jid, message }) => {
         if ((state.settings.oneWay >> 1 & 1) === 0) {
