@@ -149,7 +149,7 @@ const connectToWhatsApp = async (retry = 1) => {
         const options = {};
 
         // Obtém o display name do Discord, ou o nome de usuário caso o display name não esteja disponível
-        const username = message.member?.displayName || message.author.username;
+        const username = message.member?.displayName || message.author.displayName;
 
         if (state.settings.UploadAttachments) {
             await Promise.all(message.attachments.map((file) =>
