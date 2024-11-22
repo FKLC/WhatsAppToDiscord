@@ -169,9 +169,10 @@ const commands = {
   async list(_message, params) {
     let contacts = utils.whatsapp.contacts();
     if (params) { contacts = contacts.filter((name) => name.toLowerCase().includes(params.join(' '))); }
+    contacts = contacts.sort((a, b) => a.localeCompare(b)).join('\n');
     const message = utils.discord.partitionText(
       contacts.length
-        ? `${contacts.join('\n')}\n\nNot the whole list? You can refresh your contacts by typing \`resync\``
+        ? `${contacts}\n\nNot the whole list? You can refresh your contacts by typing \`resync\``
         : 'No results were found.',
     );
     while (message.length !== 0) {
