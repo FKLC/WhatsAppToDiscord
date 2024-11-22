@@ -337,13 +337,23 @@ const commands = {
       await controlChannel.send("Usage: oneWay <discord|whatsapp|disabled>\nExample: oneWay whatsapp");
     }
   },
+  async redirectwebhooks(_message, params) {
+    if (params.length !== 1) {
+      await controlChannel.send("Usage: redirectWebhooks <yes|no>\nExample: redirectWebhooks yes");
+      return;
+    }
+
+    state.settings.redirectWebhooks = params[0] === "yes";
+    await controlChannel.send(`Redirecting webhooks is set to ${state.settings.redirectWebhooks}.`);
+  },
   async unknownCommand(message) {
     await controlChannel.send(`Unknown command: \`${message.content}\`\nType \`help\` to see available commands`);
   },
 };
 
 client.on('messageCreate', async (message) => {
-  if (message.author === client.user || message.webhookId != null) {
+  console.log(message, state.dcClient.user.id);
+  if (message.author === client.user || message.applicationId === client.user.id || (message.webhookId != null && !state.settings.redirectWebhooks)) {
     return;
   }
 
