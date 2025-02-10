@@ -9,3 +9,4 @@ docs/
 .git
 storage/
 logs.txt
+.env
