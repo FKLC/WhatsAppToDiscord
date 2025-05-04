@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, Events, GatewayIntentBits } = require('discord.js');
 
 const state = require('./state.js');
 const utils = require('./utils.js');
@@ -17,11 +17,11 @@ const setControlChannel = async () => {
   controlChannel = await client.channels.fetch(state.settings.ControlChannelID).catch(() => null);
 };
 
-client.on('ready', async () => {
+client.on(Events.ClientReady, async () => {
   await setControlChannel();
 });
 
-client.on('channelDelete', async (channel) => {
+client.on(Events.ChannelDelete, async (channel) => {
   const jid = utils.discord.channelIdToJid(channel.id);
   delete state.chats[jid];
   delete state.goccRuns[jid];
@@ -352,7 +352,7 @@ const commands = {
   },
 };
 
-client.on('messageCreate', async (message) => {
+client.on(Events.MessageCreate, async (message) => {
   console.log(message, state.dcClient.user.id);
   if (message.author === client.user || message.applicationId === client.user.id || (message.webhookId != null && !state.settings.redirectWebhooks)) {
     return;
@@ -371,7 +371,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.on('messageUpdate', async (_, message) => {
+client.on(Events.MessageUpdate, async (_, message) => {
   if (message.webhookId != null) {
     return;
   }
@@ -390,7 +390,7 @@ client.on('messageUpdate', async (_, message) => {
   state.waClient.ev.emit('discordEdit', { jid, message });
 })
 
-client.on('messageReactionAdd', async (reaction, user) => {
+client.on(Events.MessageReactionAdd, async (reaction, user) => {
   const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
   if (jid == null) {
     return;
@@ -407,7 +407,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
   state.waClient.ev.emit('discordReaction', { jid, reaction, removed: false });
 });
 
-client.on('messageReactionRemove', async (reaction, user) => {
+client.on(Events.MessageReactionRemove, async (reaction, user) => {
   const jid = utils.discord.channelIdToJid(reaction.message.channel.id);
   if (jid == null) {
     return;
