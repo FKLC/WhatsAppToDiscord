@@ -1,7 +1,7 @@
 const readline = require('readline');
 const fs = require('fs/promises');
 const path = require('path');
-const { Client, Intents } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 
 const state = require('./state.js');
 
@@ -80,7 +80,7 @@ const storage = {
 const setup = {
   async setupDiscordChannels(token) {
     return new Promise((resolve) => {
-      const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+      const client = new Client({ intents: [GatewayIntentBits.Guilds] });
       client.once('ready', () => {
         console.log(`Invite the bot using the following link: https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=536879120`);
       });

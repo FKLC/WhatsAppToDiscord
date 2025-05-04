@@ -13,7 +13,7 @@
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
     "@whiskeysockets/baileys": "^6.7.8",
-    "discord.js": "^13.16.0",
+    "discord.js": "^14.19.3",
     "pino": "^8.14.1",
     "pkg-fetch": "^3.5.2",
     "qrcode": "^1.5.3"
