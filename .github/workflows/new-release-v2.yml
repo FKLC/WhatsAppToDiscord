@@ -1,6 +1,11 @@
-name: Build Linux & Windows Binaries
+name: Build Linux & Windows and Release
+
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.2.3). If empty on a tag push, that tag is used. On manual runs without a tag, we fall back to package.json version.'
+        required: false
   push:
     tags:
       - "v*"
@@ -9,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write   # required to create/update releases
     steps:
       - uses: actions/checkout@v4
 
@@ -31,41 +36,69 @@ jobs:
       - name: Package binaries (Linux & Windows)
         run: |
           mkdir -p build
-
-          # Linux x64
           npx -y @yao-pkg/pkg out.js \
             -t node22-linux-x64 --options no-warnings \
             -o build/WA2DC-Linux
-
-          # Windows x64 — disable bytecode to avoid needing to run the Win exe on Linux
           npx -y @yao-pkg/pkg out.js \
             -t node22-win-x64 --options no-warnings \
-            --no-bytecode --public-packages "*" --public \
+            --no-bytecode --public --public-packages "*" \
             -o build/WA2DC.exe
 
-      - name: Create checksums
+      - name: Checksums
         run: |
-          sha256sum build/WA2DC-Linux  > build/WA2DC-Linux.sha256
-          sha256sum build/WA2DC.exe    > build/WA2DC.exe.sha256
+          sha256sum build/WA2DC-Linux > build/WA2DC-Linux.sha256
+          sha256sum build/WA2DC.exe   > build/WA2DC.exe.sha256
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: WA2DC-binaries
-          path: |
-            build/WA2DC-Linux
-            build/WA2DC-Linux.sha256
-            build/WA2DC.exe
-            build/WA2DC.exe.sha256
-          if-no-files-found: error
+      - name: Create platform ZIPs
+        run: |
+          zip -j build/WA2DC-linux-x64.zip  build/WA2DC-Linux  build/WA2DC-Linux.sha256
+          zip -j build/WA2DC-win-x64.zip    build/WA2DC.exe    build/WA2DC.exe.sha256
 
-      - name: Create GitHub Release
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            build/WA2DC-Linux
-            build/WA2DC-Linux.sha256
-            build/WA2DC.exe
-            build/WA2DC.exe.sha256
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Fallback to package.json version -> vX.Y.Z
+          VERSION=$(jq -r '.version // empty' package.json)
+          if [[ -n "$VERSION" ]]; then
+            echo "value=v$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "No tag provided. Supply 'tag' when dispatching the workflow." >&2
+          exit 1
+
+      - name: Create / update GitHub Release (gh)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.tag.outputs.value }}"
+
+          # If release exists, update assets; else create and auto-generate notes.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists — uploading assets..."
+            gh release upload "$TAG" \
+              build/WA2DC-linux-x64.zip \
+              build/WA2DC-win-x64.zip \
+              --clobber
+          else
+            echo "Creating release $TAG..."
+            gh release create "$TAG" \
+              --target "${{ github.sha }}" \
+              --generate-notes \
+              --latest \
+              build/WA2DC-linux-x64.zip \
+              build/WA2DC-win-x64.zip
+          fi
+
+          echo "Release URL:"
+          gh release view "$TAG" --json url --jq .url
