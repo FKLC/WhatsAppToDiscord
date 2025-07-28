@@ -1,4 +1,5 @@
 const baileys = require('@whiskeysockets/baileys');
+const { DisconnectReason } = baileys;
 
 const utils = require('./utils.js');
 const state = require("./state.js");
@@ -30,6 +31,13 @@ const connectToWhatsApp = async (retry = 1) => {
         }
         if (connection === 'close') {
             state.logger.error(lastDisconnect.error);
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                await controlChannel.send('WhatsApp session invalid. Please rescan the QR code.');
+                await utils.whatsapp.deleteSession();
+                await actions.start(true);
+                return;
+            }
             if (retry <= 3) {
                 await controlChannel.send(`WhatsApp connection failed! Trying to reconnect! Retry #${retry}`);
                 await connectToWhatsApp(retry + 1);
