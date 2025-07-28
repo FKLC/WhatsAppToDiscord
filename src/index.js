@@ -45,6 +45,9 @@ const whatsappHandler =  require('./whatsappHandler.js');
   state.chats = await storage.parseChats();
   state.logger.info('Loaded chats.');
 
+  state.startTime = await storage.parseStartTime();
+  state.logger.info('Loaded last timestamp.');
+
   state.lastMessages = await storage.parseLastMessages();
   state.logger.info('Loaded last messages.');
 

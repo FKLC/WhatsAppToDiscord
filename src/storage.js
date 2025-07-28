@@ -65,15 +65,23 @@ const storage = {
   _lastMessagesName: 'lastMessages',
   async parseLastMessages() {
     const result = await this.get(this._lastMessagesName);
-    return result ? 
-      bidirectionalMap(state.settings.lastMessageStorage * 2, JSON.parse(result)) : 
+    return result ?
+      bidirectionalMap(state.settings.lastMessageStorage * 2, JSON.parse(result)) :
       bidirectionalMap(state.settings.lastMessageStorage * 2);
   },
 
+  _startTimeName: 'lastTimestamp',
+  async parseStartTime() {
+    const result = await this.get(this._startTimeName);
+    return result ? parseInt(result, 10) : Math.round(Date.now() / 1000);
+  },
+
   async save() {
-    for await (const field of [this._settingsName, this._chatsName, this._contactsName, this._lastMessagesName]) {
-      await this.upsert(field, JSON.stringify(state[field]));
-    }
+    await this.upsert(this._settingsName, JSON.stringify(state.settings));
+    await this.upsert(this._chatsName, JSON.stringify(state.chats));
+    await this.upsert(this._contactsName, JSON.stringify(state.contacts));
+    await this.upsert(this._lastMessagesName, JSON.stringify(state.lastMessages));
+    await this.upsert(this._startTimeName, state.startTime.toString());
   },
 };
 

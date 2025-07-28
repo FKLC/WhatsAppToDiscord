@@ -17,7 +17,7 @@ const connectToWhatsApp = async (retry = 1) => {
         auth: authState,
         logger: state.logger,
         markOnlineOnConnect: false,
-        shouldSyncHistoryMessage: () => false,
+        shouldSyncHistoryMessage: () => true,
         generateHighQualityLinkPreview: false,
         browser: ["Firefox (Linux)", "", ""]
     });
@@ -54,7 +54,7 @@ const connectToWhatsApp = async (retry = 1) => {
     ['chats.set', 'contacts.set', 'chats.upsert', 'chats.update', 'contacts.upsert', 'contacts.update', 'groups.upsert', 'groups.update'].forEach((eventName) => client.ev.on(eventName, utils.whatsapp.updateContacts));
 
     client.ev.on('messages.upsert', async (update) => {
-        if (update.type === 'notify') {
+        if (['notify', 'append'].includes(update.type)) {
             for await (const rawMessage of update.messages) {
                 const messageType = utils.whatsapp.getMessageType(rawMessage);
                 if (!utils.whatsapp.inWhitelist(rawMessage) || !utils.whatsapp.sentAfterStart(rawMessage) || !messageType) continue;
@@ -72,6 +72,8 @@ const connectToWhatsApp = async (retry = 1) => {
                     isForwarded: utils.whatsapp.isForwarded(message),
                     isEdit: messageType === 'editedMessage'
                 });
+                const ts = utils.whatsapp.getTimestamp(rawMessage);
+                if (ts > state.startTime) state.startTime = ts;
             }
         }
     });
@@ -86,6 +88,8 @@ const connectToWhatsApp = async (retry = 1) => {
                 jid: utils.whatsapp.getChannelJid(rawReaction),
                 text: rawReaction.reaction.text,
             });
+            const ts = utils.whatsapp.getTimestamp(rawReaction);
+            if (ts > state.startTime) state.startTime = ts;
         }
     });
 
@@ -98,6 +102,8 @@ const connectToWhatsApp = async (retry = 1) => {
                 jid: utils.whatsapp.getChannelJid(call),
                 call,
             });
+            const ts = utils.whatsapp.getTimestamp(call);
+            if (ts > state.startTime) state.startTime = ts;
         }
     });
 
