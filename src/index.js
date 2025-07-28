@@ -1,4 +1,8 @@
-const pino =  require('pino');
+const nodeCrypto = require('crypto');
+if (!globalThis.crypto) {
+  globalThis.crypto = nodeCrypto.webcrypto;
+}
+const pino = require('pino');
 
 const discordHandler =  require('./discordHandler.js');
 const state =  require('./state.js');
