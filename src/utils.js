@@ -127,13 +127,21 @@ const updater = {
   },
 
   async run(currVer) {
-    if (process.argv.some(arg => ['--skip-update', '-su'].includes(arg))) {
-      console.log('Skipping update due to command line argument.');
+    if (
+      process.argv.some((arg) => ['--skip-update', '-su'].includes(arg)) ||
+      process.env.WA2DC_SKIP_UPDATE === '1'
+    ) {
+      console.log('Skipping update due to configuration.');
       return;
     }
 
     if (this.isNode) {
       console.log('Running script with node. Skipping auto-update.');
+      return;
+    }
+
+    if (!process.stdin.isTTY) {
+      console.log('Skipping auto-update due to non-interactive environment.');
       return;
     }
 
