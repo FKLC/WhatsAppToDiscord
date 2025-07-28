@@ -1,44 +1,49 @@
-name: Build Linux Binary
+name: Compile and Release v2
 on:
   workflow_dispatch:
   push:
     tags:
       - "v*"
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    # upload-artifact needs actions: write; keep contents read-only
     permissions:
-      contents: read
-      actions: write
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Install Node
+        uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm i
 
-      - name: Build Linux binary
+      - name: Package into node binary
         run: |
-          ./node_modules/.bin/esbuild src/index.js \
-            --bundle --platform=node \
-            --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js \
-            --target=node18 --outfile=out.js
+          ./node_modules/.bin/esbuild ./src/index.js --bundle --platform=node --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js --target=node18 --outfile=out.js
+          ./node_modules/.bin/pkg out.js -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux
+          ./node_modules/.bin/pkg out.js -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS
+          ./node_modules/.bin/pkg out.js -t latest-win-x64 --options no-warnings -o build/WA2DC
+          ./node_modules/.bin/pkg out.js -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64
+          ./node_modules/.bin/pkg out.js -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64
+          ./node_modules/.bin/pkg out.js -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64
+          exit 0
+        shell: bash
 
-          ./node_modules/.bin/pkg out.js \
-            -t latest-linux-x64 --options no-warnings \
-            -o build/WA2DC-Linux
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Signature
+        uses: FKLC/sign-files-action@v1.0.0
         with:
-          name: WA2DC-Linux
-          path: build/WA2DC-Linux
-          if-no-files-found: error
+          privateKey: ${{ secrets.PK }}
+          passphrase: ${{ secrets.PK_PASSPHRASE }}
+          outputFolder: build/
+          files: |
+            build/**
+      - name: Make a draft release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: build/**
