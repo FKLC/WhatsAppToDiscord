@@ -9,14 +9,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      actions: write
+      contents: write   # needed to create/update releases
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'   # Node 22 is LTS; 20 also works
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
@@ -29,14 +28,27 @@ jobs:
             --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js \
             --target=node22 --outfile=out.js
 
-          # Use the maintained fork that supports Node 20/22 targets
           npx -y @yao-pkg/pkg out.js \
             -t node22-linux-x64 --options no-warnings \
             -o build/WA2DC-Linux
 
-      - name: Upload artifact
+      - name: Create checksum
+        run: sha256sum build/WA2DC-Linux > build/WA2DC-Linux.sha256
+
+      - name: Upload artifact (for CI browsing)
         uses: actions/upload-artifact@v4
         with:
           name: WA2DC-Linux
-          path: build/WA2DC-Linux
+          path: |
+            build/WA2DC-Linux
+            build/WA2DC-Linux.sha256
           if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            build/WA2DC-Linux
+            build/WA2DC-Linux.sha256
