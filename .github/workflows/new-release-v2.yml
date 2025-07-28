@@ -1,4 +1,4 @@
-name: Build Linux Binary
+name: Compile and Release v2
 on:
   workflow_dispatch:
   push:
@@ -9,34 +9,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      actions: write
-    steps:
-      - uses: actions/checkout@v4
+      contents: write
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'   # Node 22 is LTS; 20 also works
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Linux binary
+      - name: Package into node binaries
+        shell: bash
         run: |
-          npx esbuild src/index.js \
+          npx esbuild ./src/index.js \
             --bundle --platform=node --format=cjs \
             --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js \
             --target=node22 --outfile=out.js
 
-          # Use the maintained fork that supports Node 20/22 targets
-          npx -y @yao-pkg/pkg out.js \
-            -t node22-linux-x64 --options no-warnings \
-            -o build/WA2DC-Linux
+          # Build all targets with the maintained pkg fork
+          npx -y @yao-pkg/pkg out.js -t node22-linux-x64    --options no-warnings -o build/WA2DC-Linux
+          npx -y @yao-pkg/pkg out.js -t node22-linux-arm64  --options no-warnings -o build/WA2DC-Linux-arm64
+          npx -y @yao-pkg/pkg out.js -t node22-macos-x64    --options no-warnings -o build/WA2DC-macOS
+          npx -y @yao-pkg/pkg out.js -t node22-macos-arm64  --options no-warnings -o build/WA2DC-macOS-arm64
+          npx -y @yao-pkg/pkg out.js -t node22-win-x64      --options no-warnings -o build/WA2DC
+          npx -y @yao-pkg/pkg out.js -t node22-win-arm64    --options no-warnings -o build/WA2DC-arm64
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+          # If you’d rather not fail the job when any single target fails,
+          # uncomment the next line to mimic the original behaviour:
+          # exit 0
+
+      - name: Create Signature
+        uses: FKLC/sign-files-action@v1.0.0
         with:
-          name: WA2DC-Linux
-          path: build/WA2DC-Linux
-          if-no-files-found: error
+          privateKey: ${{ secrets.PK }}
+          passphrase: ${{ secrets.PK_PASSPHRASE }}
+          outputFolder: build/
+          files: |
+            build/**
+
+      - name: Make a draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: build/**
