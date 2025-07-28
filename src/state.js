@@ -26,5 +26,10 @@ module.exports = {
   startTime: 0,
   logger: null,
   lastMessages: null,
+  /**
+   * Stores WhatsApp message IDs that originate from Discord so that
+   * they are not echoed back to Discord when received from WhatsApp.
+   */
+  sentMessages: new Set(),
   goccRuns: {},
 };
