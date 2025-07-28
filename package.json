@@ -16,7 +16,9 @@
     "discord.js": "^13.16.0",
     "pino": "^8.14.1",
     "pkg-fetch": "^3.5.2",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "jimp": "^0.16.13",
+    "sharp": "^0.32.6"
   },
   "devDependencies": {
     "docsify-cli": "^4.4.4",
