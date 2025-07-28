@@ -531,8 +531,14 @@ const whatsapp = {
   inWhitelist(rawMsg) {
     return state.settings.Whitelist.length === 0 || state.settings.Whitelist.includes(rawMsg?.key?.remoteJid || rawMsg.chatId);
   },
+  getTimestamp(rawMsg) {
+    if (rawMsg?.messageTimestamp) return rawMsg.messageTimestamp;
+    if (rawMsg?.reaction?.senderTimestampMs) return Math.round(rawMsg.reaction.senderTimestampMs / 1000);
+    if (rawMsg?.date) return Math.round(rawMsg.date.getTime() / 1000);
+    return 0;
+  },
   sentAfterStart(rawMsg) {
-    return (rawMsg?.messageTimestamp || rawMsg?.reaction?.senderTimestampMs || rawMsg?.date?.getTime() / 1000) > state.startTime;
+    return this.getTimestamp(rawMsg) > state.startTime;
   },
   getMessageType(rawMsg) {
     return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage', 'editedMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
