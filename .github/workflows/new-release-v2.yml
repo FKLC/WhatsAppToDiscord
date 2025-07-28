@@ -1,4 +1,4 @@
-name: Build Linux Binary
+name: Build Linux & Windows Binaries
 on:
   workflow_dispatch:
   push:
@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to create/update releases
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -21,27 +21,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Linux binary
+      - name: Build with esbuild
         run: |
           npx esbuild src/index.js \
             --bundle --platform=node --format=cjs \
             --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js \
             --target=node22 --outfile=out.js
 
+      - name: Package binaries (Linux & Windows)
+        run: |
+          mkdir -p build
+
+          # Linux x64
           npx -y @yao-pkg/pkg out.js \
             -t node22-linux-x64 --options no-warnings \
             -o build/WA2DC-Linux
 
-      - name: Create checksum
-        run: sha256sum build/WA2DC-Linux > build/WA2DC-Linux.sha256
+          # Windows x64 — disable bytecode to avoid needing to run the Win exe on Linux
+          npx -y @yao-pkg/pkg out.js \
+            -t node22-win-x64 --options no-warnings \
+            --no-bytecode --public-packages "*" --public \
+            -o build/WA2DC.exe
 
-      - name: Upload artifact (for CI browsing)
+      - name: Create checksums
+        run: |
+          sha256sum build/WA2DC-Linux  > build/WA2DC-Linux.sha256
+          sha256sum build/WA2DC.exe    > build/WA2DC.exe.sha256
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: WA2DC-Linux
+          name: WA2DC-binaries
           path: |
             build/WA2DC-Linux
             build/WA2DC-Linux.sha256
+            build/WA2DC.exe
+            build/WA2DC.exe.sha256
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -52,3 +67,5 @@ jobs:
           files: |
             build/WA2DC-Linux
             build/WA2DC-Linux.sha256
+            build/WA2DC.exe
+            build/WA2DC.exe.sha256
