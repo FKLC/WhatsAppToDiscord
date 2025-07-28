@@ -1,49 +1,42 @@
-name: Compile and Release v2
+name: Build Linux Binary
 on:
   workflow_dispatch:
   push:
     tags:
       - "v*"
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      actions: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'npm'
+          node-version: '22'   # Node 22 is LTS; 20 also works
+          cache: npm
 
       - name: Install dependencies
-        run: npm i
+        run: npm ci
 
-      - name: Package into node binary
+      - name: Build Linux binary
         run: |
-          ./node_modules/.bin/esbuild ./src/index.js --bundle --platform=node --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js --target=node18 --outfile=out.js
-          ./node_modules/.bin/pkg out.js -t latest-linux-x64 --options no-warnings -o build/WA2DC-Linux
-          ./node_modules/.bin/pkg out.js -t latest-macos-x64 --options no-warnings -o build/WA2DC-macOS
-          ./node_modules/.bin/pkg out.js -t latest-win-x64 --options no-warnings -o build/WA2DC
-          ./node_modules/.bin/pkg out.js -t latest-linux-arm64 --options no-warnings -o build/WA2DC-Linux-arm64
-          ./node_modules/.bin/pkg out.js -t latest-macos-arm64 --options no-warnings -o build/WA2DC-macOS-arm64
-          ./node_modules/.bin/pkg out.js -t latest-win-arm64 --options no-warnings -o build/WA2DC-arm64
-          exit 0
-        shell: bash
+          npx esbuild src/index.js \
+            --bundle --platform=node --format=cjs \
+            --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js \
+            --target=node22 --outfile=out.js
 
-      - name: Create Signature
-        uses: FKLC/sign-files-action@v1.0.0
+          # Use the maintained fork that supports Node 20/22 targets
+          npx -y @yao-pkg/pkg out.js \
+            -t node22-linux-x64 --options no-warnings \
+            -o build/WA2DC-Linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          privateKey: ${{ secrets.PK }}
-          passphrase: ${{ secrets.PK_PASSPHRASE }}
-          outputFolder: build/
-          files: |
-            build/**
-      - name: Make a draft release
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          files: build/**
+          name: WA2DC-Linux
+          path: build/WA2DC-Linux
+          if-no-files-found: error
