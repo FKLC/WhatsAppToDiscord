@@ -1,0 +1,9 @@
+name: wa2dc
+services:
+  wa2dc:
+    build: .
+    volumes:
+      - ./storage:/usr/local/WA2DC/storage
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -8,3 +8,4 @@ build/
 *.bat
 storage/
 out.js
+.env
