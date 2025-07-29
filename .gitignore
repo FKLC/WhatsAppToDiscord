@@ -7,4 +7,4 @@ downloads/
 build/
 *.bat
 storage/
-out.js
+out.cjs

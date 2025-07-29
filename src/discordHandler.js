@@ -353,7 +353,6 @@ const commands = {
 };
 
 client.on('messageCreate', async (message) => {
-  console.log(message, state.dcClient.user.id);
   if (message.author === client.user || message.applicationId === client.user.id || (message.webhookId != null && !state.settings.redirectWebhooks)) {
     return;
   }
