@@ -30,11 +30,11 @@ jobs:
       - name: Package into node binary
         run: |
           ./node_modules/.bin/esbuild ./src/index.js --bundle --platform=node --external:sharp --external:qrcode-terminal --external:jimp --external:link-preview-js --target=node22 --outfile=out.cjs
-          deno compile -A --exclude node_modules --target x86_64-pc-windows-msvc out.cjs -o build/WA2DC.exe
-          deno compile -A --exclude node_modules --target x86_64-apple-darwin out.cjs -o build/WA2DC-macOS
-          deno compile -A --exclude node_modules --target aarch64-apple-darwin out.cjs -o build/WA2DC-macOS-arm64
-          deno compile -A --exclude node_modules --target x86_64-unknown-linux-gnu out.cjs -o build/WA2DC-Linux
-          deno compile -A --exclude node_modules --target aarch64-unknown-linux-gnu out.cjs -o build/WA2DC-Linux-arm64
+          deno compile -A --exclude node_modules --target x86_64-pc-windows-msvc -o build/WA2DC.exe out.cjs
+          deno compile -A --exclude node_modules --target x86_64-apple-darwin -o build/WA2DC-macOS out.cjs
+          deno compile -A --exclude node_modules --target aarch64-apple-darwin -o build/WA2DC-macOS-arm64 out.cjs
+          deno compile -A --exclude node_modules --target x86_64-unknown-linux-gnu -o build/WA2DC-Linux out.cjs
+          deno compile -A --exclude node_modules --target aarch64-unknown-linux-gnu -o build/WA2DC-Linux-arm64 out.cjs
           exit 0
         shell: bash
 
