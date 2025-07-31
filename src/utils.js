@@ -127,13 +127,21 @@ const updater = {
   },
 
   async run(currVer) {
-    if (process.argv.some(arg => ['--skip-update', '-su'].includes(arg))) {
-      console.log('Skipping update due to command line argument.');
+    if (
+      process.argv.some((arg) => ['--skip-update', '-su'].includes(arg)) ||
+      process.env.WA2DC_SKIP_UPDATE === '1'
+    ) {
+      console.log('Skipping update due to configuration.');
       return;
     }
 
     if (this.isNode) {
       console.log('Running script with node. Skipping auto-update.');
+      return;
+    }
+
+    if (!process.stdin.isTTY) {
+      console.log('Skipping auto-update due to non-interactive environment.');
       return;
     }
 
@@ -531,8 +539,14 @@ const whatsapp = {
   inWhitelist(rawMsg) {
     return state.settings.Whitelist.length === 0 || state.settings.Whitelist.includes(rawMsg?.key?.remoteJid || rawMsg.chatId);
   },
+  getTimestamp(rawMsg) {
+    if (rawMsg?.messageTimestamp) return rawMsg.messageTimestamp;
+    if (rawMsg?.reaction?.senderTimestampMs) return Math.round(rawMsg.reaction.senderTimestampMs / 1000);
+    if (rawMsg?.date) return Math.round(rawMsg.date.getTime() / 1000);
+    return 0;
+  },
   sentAfterStart(rawMsg) {
-    return (rawMsg?.messageTimestamp || rawMsg?.reaction?.senderTimestampMs || rawMsg?.date?.getTime() / 1000) > state.startTime;
+    return this.getTimestamp(rawMsg) > state.startTime;
   },
   getMessageType(rawMsg) {
     return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'documentWithCaptionMessage', 'viewOnceMessageV2', 'stickerMessage', 'editedMessage'].find((el) => Object.hasOwn(rawMsg.message || {}, el));
@@ -597,15 +611,28 @@ const whatsapp = {
     return documentContent;
   },
   async createQuoteMessage(message) {
-    const refMessage = await message.channel.messages.fetch(message.reference.messageId);
-    if (state.lastMessages[refMessage.id] == null) return null;
-    return {
-      key: {
-        remoteJid: refMessage.webhookId && refMessage.author.username !== 'You' ? this.toJid(refMessage.author.username) : state.waClient.user.id,
-        id: state.lastMessages[refMessage.id],
-      },
-      message: { conversation: refMessage.content },
-    };
+    const { channelId, messageId } = message.reference || {};
+    if (!channelId || !messageId) return null;
+
+    try {
+      const channel = await message.client.channels.fetch(channelId);
+      const refMessage = await channel.messages.fetch(messageId);
+
+      if (state.lastMessages[refMessage.id] == null) return null;
+
+      return {
+        key: {
+          remoteJid: refMessage.webhookId && refMessage.author.username !== 'You'
+            ? this.toJid(refMessage.author.username)
+            : state.waClient.user.id,
+          id: state.lastMessages[refMessage.id],
+        },
+        message: { conversation: refMessage.content },
+      };
+    } catch (err) {
+      state.logger?.error(err);
+      return null;
+    }
   },
 
   async deleteSession() {

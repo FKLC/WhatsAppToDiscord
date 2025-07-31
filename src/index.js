@@ -1,4 +1,8 @@
-const pino =  require('pino');
+const nodeCrypto = require('crypto');
+if (!globalThis.crypto) {
+  globalThis.crypto = nodeCrypto.webcrypto;
+}
+const pino = require('pino');
 
 const discordHandler =  require('./discordHandler.js');
 const state =  require('./state.js');
@@ -41,6 +45,9 @@ const whatsappHandler =  require('./whatsappHandler.js');
 
   state.chats = await storage.parseChats();
   state.logger.info('Loaded chats.');
+
+  state.startTime = await storage.parseStartTime();
+  state.logger.info('Loaded last timestamp.');
 
   state.lastMessages = await storage.parseLastMessages();
   state.logger.info('Loaded last messages.');

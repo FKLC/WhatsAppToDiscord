@@ -1,4 +1,5 @@
 const baileys = require('@whiskeysockets/baileys');
+const { DisconnectReason } = baileys;
 
 const utils = require('./utils.js');
 const state = require("./state.js");
@@ -17,7 +18,7 @@ const connectToWhatsApp = async (retry = 1) => {
         auth: authState,
         logger: state.logger,
         markOnlineOnConnect: false,
-        shouldSyncHistoryMessage: () => false,
+        shouldSyncHistoryMessage: () => true,
         generateHighQualityLinkPreview: false,
         browser: ["Firefox (Linux)", "", ""]
     });
@@ -30,6 +31,13 @@ const connectToWhatsApp = async (retry = 1) => {
         }
         if (connection === 'close') {
             state.logger.error(lastDisconnect.error);
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                await controlChannel.send('WhatsApp session invalid. Please rescan the QR code.');
+                await utils.whatsapp.deleteSession();
+                await actions.start(true);
+                return;
+            }
             if (retry <= 3) {
                 await controlChannel.send(`WhatsApp connection failed! Trying to reconnect! Retry #${retry}`);
                 await connectToWhatsApp(retry + 1);
@@ -54,8 +62,13 @@ const connectToWhatsApp = async (retry = 1) => {
     ['chats.set', 'contacts.set', 'chats.upsert', 'chats.update', 'contacts.upsert', 'contacts.update', 'groups.upsert', 'groups.update'].forEach((eventName) => client.ev.on(eventName, utils.whatsapp.updateContacts));
 
     client.ev.on('messages.upsert', async (update) => {
-        if (update.type === 'notify') {
+        if (['notify', 'append'].includes(update.type)) {
             for await (const rawMessage of update.messages) {
+                const messageId = utils.whatsapp.getId(rawMessage);
+                if (state.sentMessages.has(messageId)) {
+                    state.sentMessages.delete(messageId);
+                    continue;
+                }
                 const messageType = utils.whatsapp.getMessageType(rawMessage);
                 if (!utils.whatsapp.inWhitelist(rawMessage) || !utils.whatsapp.sentAfterStart(rawMessage) || !messageType) continue;
 
@@ -72,6 +85,8 @@ const connectToWhatsApp = async (retry = 1) => {
                     isForwarded: utils.whatsapp.isForwarded(message),
                     isEdit: messageType === 'editedMessage'
                 });
+                const ts = utils.whatsapp.getTimestamp(rawMessage);
+                if (ts > state.startTime) state.startTime = ts;
             }
         }
     });
@@ -86,6 +101,8 @@ const connectToWhatsApp = async (retry = 1) => {
                 jid: utils.whatsapp.getChannelJid(rawReaction),
                 text: rawReaction.reaction.text,
             });
+            const ts = utils.whatsapp.getTimestamp(rawReaction);
+            if (ts > state.startTime) state.startTime = ts;
         }
     });
 
@@ -98,6 +115,8 @@ const connectToWhatsApp = async (retry = 1) => {
                 jid: utils.whatsapp.getChannelJid(call),
                 call,
             });
+            const ts = utils.whatsapp.getTimestamp(call);
+            if (ts > state.startTime) state.startTime = ts;
         }
     });
 
@@ -151,7 +170,10 @@ const connectToWhatsApp = async (retry = 1) => {
         if (state.settings.UploadAttachments) {
             await Promise.all(message.attachments.map((file) =>
                 client.sendMessage(jid, utils.whatsapp.createDocumentContent(file))
-                    .then(m => { state.lastMessages[message.id] = m.key.id })
+                    .then(m => {
+                        state.lastMessages[message.id] = m.key.id;
+                        state.sentMessages.add(m.key.id);
+                    })
             ));
             content.text = message.content || "";
         } else {
@@ -171,7 +193,9 @@ const connectToWhatsApp = async (retry = 1) => {
 
         if (message.content === "") return;
 
-        state.lastMessages[message.id] = (await client.sendMessage(jid, content, options)).key.id;
+        const sent = await client.sendMessage(jid, content, options);
+        state.lastMessages[message.id] = sent.key.id;
+        state.sentMessages.add(sent.key.id);
     });
 
     client.ev.on('discordEdit', async ({ jid, message }) => {
@@ -189,13 +213,14 @@ const connectToWhatsApp = async (retry = 1) => {
             key.participant = utils.whatsapp.toJid(message.author.username);
         }
 
-        await client.sendMessage(
+        const editMsg = await client.sendMessage(
             jid,
             {
                 text: message.content,
                 edit: key,
             }
-        )
+        );
+        state.sentMessages.add(editMsg.key.id);
     });
 
     client.ev.on('discordReaction', async ({ jid, reaction, removed }) => {
@@ -213,15 +238,15 @@ const connectToWhatsApp = async (retry = 1) => {
             key.participant = utils.whatsapp.toJid(reaction.message.author.username);
         }
 
-        const messageId = (
-            await client.sendMessage(jid, {
-                react: {
-                    text: removed ? '' : reaction.emoji.name,
-                    key,
-                },
-            })
-        ).key.id;
+        const reactionMsg = await client.sendMessage(jid, {
+            react: {
+                text: removed ? '' : reaction.emoji.name,
+                key,
+            },
+        });
+        const messageId = reactionMsg.key.id;
         state.lastMessages[messageId] = true;
+        state.sentMessages.add(messageId);
     });
 
     return client;
