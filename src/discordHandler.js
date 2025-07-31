@@ -19,6 +19,15 @@ const setControlChannel = async () => {
 
 client.on('ready', async () => {
   await setControlChannel();
+  if (!controlChannel) {
+    return;
+  }
+  await controlChannel.send(
+    "This bot is no longer maintained by FKLC, hence auto-updates are disabled. " +
+      "You may consider using one of the other forks. " +
+      "A recommended fork is [@arespawn's fork](https://github.com/arespawn/WhatsAppToDiscord). " +
+      "Employ the same amount of caution as you would with any other software. "
+  );
 });
 
 client.on('channelDelete', async (channel) => {

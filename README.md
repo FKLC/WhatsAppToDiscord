@@ -2,6 +2,11 @@
 
 WhatsAppToDiscord is a Discord bot that uses WhatsApp Web as a bridge between Discord and WhatsApp. It is built on top of [discord.js](https://github.com/discordjs/discord.js) and [Baileys](https://github.com/WhiskeySockets/Baileys) libraries.
 
+### THIS REPO IS NO LONGER MAINTAINED!
+
+This bot is no longer maintained by FKLC, hence auto-updates are disabled. You may consider using one of the other forks. A recommended fork is [@arespawn's fork](https://github.com/arespawn/WhatsAppToDiscord). Employ the same amount of caution as you would with any other software.
+
+
 ### Features
 
 - Supports media (Image, Video, Audio, Document, Stickers) and reactions!
